@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>OfferMeDiscounts.com — Deals, Coupons &amp; Cashback</title>
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-inner wrap">
+    <a href="index.html" class="logo">Offer<span class="tag">Me</span>Discounts</a>
+    <form class="search-bar" onsubmit="handleSearch(event)">
+      <input id="searchInput" type="text" placeholder="Search brands, stores, or categories&hellip;" />
+      <button type="submit">Search</button>
+    </form>
+    <nav class="header-nav">
+      <a href="#browse">Browse Deals</a>
+      <a href="admin.html">Admin</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <h1>Every deal, one text away.</h1>
+    <p>OfferMeDiscounts.com aggregates coupons and discounts across your favorite stores. Text your number to unlock your first code — no browsing required.</p>
+    <div class="hero-stats">
+      <div><strong id="dealCountStat">0</strong>Active deals</div>
+      <div><strong id="storeCountStat">0</strong>Partner stores</div>
+      <div><strong id="categoryCountStat">0</strong>Categories</div>
+    </div>
+  </div>
+</section>
+
+<main class="wrap" id="browse">
+  <div class="section-head" style="margin-top:28px;">
+    <h2>🔥 Featured deals</h2>
+    <span>Hand-picked, expiring soon</span>
+  </div>
+  <div class="deal-grid featured-strip" id="featuredGrid"></div>
+
+  <div class="section-head">
+    <h2>All deals</h2>
+    <span id="resultCount"></span>
+  </div>
+  <div class="category-bar" id="categoryBar"></div>
+  <div class="deal-grid" id="dealGrid"></div>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div>&copy; 2026 OfferMeDiscounts.com — prototype build.</div>
+    <div><a href="admin.html">Admin dashboard</a></div>
+  </div>
+</footer>
+
+<!-- Deal detail + mock SMS-gate modal -->
+<div class="modal-overlay hidden" id="modalOverlay">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="deal-emoji" id="modalEmoji"></div>
+    <h2 id="modalTitle"></h2>
+    <div class="modal-store" id="modalStore"></div>
+    <div class="modal-desc" id="modalDesc"></div>
+
+    <!-- Step 1: phone entry -->
+    <div class="step active" id="stepPhone">
+      <form onsubmit="submitPhone(event)">
+        <label class="field-label" for="phoneInput">Text your number to unlock this code</label>
+        <input class="text-input" id="phoneInput" type="tel" placeholder="(555) 123-4567" />
+        <button class="primary-btn" id="sendCodeBtn" type="submit">Text Me the Code</button>
+        <div class="disclaimer">By continuing you agree to receive automated marketing texts from OfferMeDiscounts.com. Msg &amp; data rates may apply. Reply STOP to opt out. (Simulated in this prototype — no real SMS is sent.)</div>
+      </form>
+    </div>
+
+    <!-- Step 2: OTP confirm -->
+    <div class="step" id="stepOtp">
+      <div class="sms-hint">We texted a 4-digit code to <strong id="otpPhoneDisplay"></strong>. (Demo: enter any 4+ digits.)</div>
+      <form onsubmit="submitOtp(event)">
+        <label class="field-label" for="otpInput">Enter confirmation code</label>
+        <div class="otp-row">
+          <input class="text-input" id="otpInput" inputmode="numeric" maxlength="6" placeholder="1234" />
+        </div>
+        <button class="primary-btn" type="submit">Confirm &amp; Unlock Deal</button>
+      </form>
+    </div>
+
+    <!-- Step 3: code reveal -->
+    <div class="step" id="stepReveal">
+      <div class="code-reveal">
+        <div style="font-size:12px;color:var(--ink-soft);font-weight:700;text-transform:uppercase;">Your code</div>
+        <div class="code-text" id="revealCode"></div>
+        <button class="copy-btn" onclick="copyCode()">Copy code</button>
+      </div>
+      <p style="font-size:13px;color:var(--ink-soft);" id="revealNote"></p>
+      <div class="sms-hint" id="revealSmsPreview" style="display:none;"></div>
+      <button class="primary-btn" onclick="closeModal()">Done</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="js/deals-data.js"></script>
+<script src="js/store.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

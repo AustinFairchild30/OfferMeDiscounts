@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Admin — OfferMeDiscounts.com</title>
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-inner wrap">
+    <a href="index.html" class="logo">Offer<span class="tag">Me</span>Discounts</a>
+    <nav class="header-nav" style="margin-left:0;">
+      <a href="index.html">&larr; Back to site</a>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap admin-shell">
+  <div class="admin-topbar">
+    <h1>Coupon &amp; deal management</h1>
+    <button class="icon-btn" onclick="handleResetData()">Reset to sample data</button>
+  </div>
+
+  <div class="stat-cards">
+    <div class="stat-card"><div class="label">Total deals</div><div class="value" id="statTotal">0</div></div>
+    <div class="stat-card"><div class="label">Categories</div><div class="value" id="statCategories">0</div></div>
+    <div class="stat-card"><div class="label">Featured</div><div class="value" id="statFeatured">0</div></div>
+    <div class="stat-card"><div class="label">Expiring in 14 days</div><div class="value" id="statExpiring">0</div></div>
+  </div>
+
+  <div class="section-head">
+    <h2 id="formTitle">Add a new deal</h2>
+  </div>
+
+  <form class="admin-form" id="dealForm" onsubmit="submitDealForm(event)">
+    <div>
+      <label for="fTitle">Deal title</label>
+      <input id="fTitle" type="text" placeholder="30% Off Wireless Headphones" required />
+    </div>
+    <div>
+      <label for="fBrand">Brand</label>
+      <input id="fBrand" type="text" placeholder="SoundWave" />
+    </div>
+    <div>
+      <label for="fStore">Store</label>
+      <input id="fStore" type="text" placeholder="SoundWave Audio" required />
+    </div>
+    <div>
+      <label for="fCategory">Category</label>
+      <select id="fCategory" onchange="categorySelectChanged()"></select>
+    </div>
+    <div id="newCategoryWrap" style="display:none;">
+      <label for="fNewCategory">New category name</label>
+      <input id="fNewCategory" type="text" placeholder="e.g. Baby & Kids" />
+    </div>
+    <div>
+      <label for="fDiscount">Discount label</label>
+      <input id="fDiscount" type="text" placeholder="30% OFF" required />
+    </div>
+    <div>
+      <label for="fCode">Coupon code</label>
+      <input id="fCode" type="text" placeholder="WAVE30" required />
+    </div>
+    <div>
+      <label for="fEmoji">Icon (emoji)</label>
+      <input id="fEmoji" type="text" placeholder="🎧" />
+    </div>
+    <div>
+      <label for="fExpires">Expires</label>
+      <input id="fExpires" type="date" required />
+    </div>
+    <div class="full">
+      <label for="fDescription">Description</label>
+      <textarea id="fDescription" rows="2" placeholder="Terms and details shown on the deal card."></textarea>
+    </div>
+    <div>
+      <label style="display:flex;align-items:center;gap:6px;text-transform:none;font-size:13px;">
+        <input id="fFeatured" type="checkbox" style="width:auto;" /> Feature this deal
+      </label>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="primary-btn" id="submitBtn" type="submit">Add Deal</button>
+      <button class="icon-btn" type="button" onclick="resetForm()">Cancel</button>
+    </div>
+  </form>
+
+  <div class="section-head">
+    <h2>All deals</h2>
+  </div>
+  <table class="admin-table">
+    <thead>
+      <tr>
+        <th>Deal</th>
+        <th>Store</th>
+        <th>Category</th>
+        <th>Discount</th>
+        <th>Code</th>
+        <th>Expires</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="adminTableBody"></tbody>
+  </table>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="js/deals-data.js"></script>
+<script src="js/store.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>
