@@ -8,7 +8,7 @@ sends the SMS. This replaces the mocked flow in the front-end prototype.
 ## 1. Create a Twilio account
 
 1. Sign up at [twilio.com/try-twilio](https://www.twilio.com/try-twilio) (free trial includes credit).
-2. From the [Twilio Console](https://console.twilio.com) dashboard, copy your **Account SID** and **Auth Token** — you'll need these for `.env`.
+2. From the [Twilio Console](https://console.twilio.com) dashboard, copy your **Account SID** (top of the dashboard). Then create an **API Key** (Twilio's recommended auth method over the account Auth Token — Console → Account → [API keys & tokens](https://console.twilio.com/us1/account/keys-credentials/api-keys) → Create API key, "Standard" type). Copy the **SID** (starts with `SK`) and **Secret** (shown once) into `.env`.
 3. Get a phone number: Console → Phone Numbers → Buy a Number (a US local or toll-free number works; toll-free numbers verify faster for messaging). Copy it in E.164 format (e.g. `+18885551234`) into `TWILIO_FROM_NUMBER`.
 4. Create a Verify Service: Console → Verify → Services → Create new Service (name it "OfferMeDiscounts"). Copy the **Service SID** (starts with `VA`) into `TWILIO_VERIFY_SERVICE_SID`.
 5. **Trial account note:** while on a free trial, Twilio can only send SMS to phone numbers you've verified as "Caller IDs" in the console (Console → Phone Numbers → Verified Caller IDs). Add your own phone number there to test. Verify OTP codes work the same way — the phone receiving the code must be a verified number on trial accounts.

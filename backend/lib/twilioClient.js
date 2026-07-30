@@ -7,14 +7,18 @@
 const twilio = require("twilio");
 
 function getClient() {
-  const sid = process.env.TWILIO_ACCOUNT_SID;
-  const token = process.env.TWILIO_AUTH_TOKEN;
-  if (!sid || !token) {
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const apiKeySid = process.env.TWILIO_API_KEY_SID;
+  const apiKeySecret = process.env.TWILIO_API_KEY_SECRET;
+  if (!accountSid || !apiKeySid || !apiKeySecret) {
     throw new Error(
-      "Missing TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN. Copy .env.example to .env and fill in your Twilio credentials."
+      "Missing TWILIO_ACCOUNT_SID / TWILIO_API_KEY_SID / TWILIO_API_KEY_SECRET. Copy .env.example to .env and fill in your Twilio credentials."
     );
   }
-  return twilio(sid, token);
+  // API Key auth (Twilio's recommended approach over the account Auth Token):
+  // a key can be individually revoked/rotated without affecting the Auth
+  // Token, which limits blast radius if one leaks.
+  return twilio(apiKeySid, apiKeySecret, { accountSid });
 }
 
 // Sends a one-time code to `phone` (E.164 format, e.g. +15551234567).
