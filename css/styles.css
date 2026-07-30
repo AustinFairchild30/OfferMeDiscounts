@@ -120,6 +120,41 @@ nav.header-nav a:hover { color: var(--ink); }
 .hero-stats div { font-size: 13px; color: var(--ink-soft); }
 .hero-stats strong { display: block; font-size: 20px; color: var(--ink); }
 
+/* How it works */
+.how-it-works {
+  padding: 32px 0;
+  border-bottom: 1px solid var(--border);
+}
+.how-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+.how-step {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+}
+.how-num {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--brand-orange);
+  color: white;
+  font-weight: 800;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+.how-step h3 { font-size: 15.5px; margin: 0 0 6px; }
+.how-step p { font-size: 13px; color: var(--ink-soft); margin: 0; line-height: 1.5; }
+@media (max-width: 720px) {
+  .how-steps { grid-template-columns: 1fr; }
+}
+
 /* Category chips */
 .category-bar {
   display: flex;
