@@ -1,52 +1,64 @@
-// User storage. Simple JSON-file "database" keyed by phone number (E.164),
-// standing in for the Postgres users table described in the roadmap doc
-// (phone as primary key, email secondary, declared interests, engagement
-// history). Fine for local prototyping; swap for real Postgres before
-// you have real users.
+// User storage, backed by Postgres (see backend/db/schema.sql). Replaces
+// the old JSON-file store (backend/data/users.json) — same function
+// names/shapes as before so routes/api.js only needed `await` added.
 
-const fs = require("fs");
-const path = require("path");
+const pool = require("../db/pool");
 
-const USERS_PATH = path.join(__dirname, "..", "data", "users.json");
-
-function readUsers() {
-  if (!fs.existsSync(USERS_PATH)) return {};
-  const raw = fs.readFileSync(USERS_PATH, "utf8").trim();
-  if (!raw) return {};
-  return JSON.parse(raw);
-}
-
-function writeUsers(users) {
-  fs.writeFileSync(USERS_PATH, JSON.stringify(users, null, 2));
-}
-
-function getUser(phone) {
-  const users = readUsers();
-  return users[phone] || null;
-}
-
-function upsertUser(phone, patch) {
-  const users = readUsers();
-  const existing = users[phone] || {
-    phone,
-    registeredAt: null,
-    verified: false,
-    interests: [],
-    engagement: [] // { dealId, category, sentAt }
+function rowToUser(userRow, engagementRows) {
+  return {
+    phone: userRow.phone,
+    registeredAt: userRow.registered_at,
+    verified: userRow.verified,
+    interests: userRow.interests || [],
+    engagement: engagementRows.map(e => ({
+      dealId: e.deal_id,
+      category: e.category,
+      smsSent: e.sms_sent,
+      via: e.via || undefined,
+      at: e.at
+    }))
   };
-  users[phone] = { ...existing, ...patch };
-  writeUsers(users);
-  return users[phone];
 }
 
-function logEngagement(phone, entry) {
-  const users = readUsers();
-  const user = users[phone];
+async function getUser(phone) {
+  const { rows } = await pool.query("SELECT * FROM users WHERE phone = $1", [phone]);
+  if (!rows[0]) return null;
+  const { rows: engagement } = await pool.query(
+    "SELECT * FROM engagement_events WHERE phone = $1 ORDER BY at",
+    [phone]
+  );
+  return rowToUser(rows[0], engagement);
+}
+
+async function upsertUser(phone, patch) {
+  const existing = await getUser(phone);
+  const merged = {
+    phone,
+    registeredAt: existing?.registeredAt ?? null,
+    verified: existing?.verified ?? false,
+    interests: existing?.interests ?? [],
+    ...patch
+  };
+  await pool.query(
+    `INSERT INTO users (phone, registered_at, verified, interests)
+     VALUES ($1,$2,$3,$4)
+     ON CONFLICT (phone) DO UPDATE SET
+       registered_at = EXCLUDED.registered_at,
+       verified = EXCLUDED.verified,
+       interests = EXCLUDED.interests`,
+    [phone, merged.registeredAt, merged.verified, JSON.stringify(merged.interests)]
+  );
+  return getUser(phone);
+}
+
+async function logEngagement(phone, entry) {
+  const user = await getUser(phone);
   if (!user) return;
-  user.engagement = user.engagement || [];
-  user.engagement.push({ ...entry, at: new Date().toISOString() });
-  users[phone] = user;
-  writeUsers(users);
+  await pool.query(
+    `INSERT INTO engagement_events (phone, deal_id, category, sms_sent, via)
+     VALUES ($1,$2,$3,$4,$5)`,
+    [phone, entry.dealId, entry.category, !!entry.smsSent, entry.via || null]
+  );
 }
 
-module.exports = { readUsers, writeUsers, getUser, upsertUser, logEngagement };
+module.exports = { getUser, upsertUser, logEngagement };
