@@ -31,8 +31,8 @@ isn't running, so it never breaks either way.
 | `js/store.js` | Shared localStorage-backed "deal store" used by both front-end pages |
 | `js/app.js` | Public site logic: search, filtering, the SMS-gate modal (real + mock) |
 | `js/admin.js` | Admin CRUD logic (still localStorage-only — see below) |
-| `backend/` | Node/Express server: Twilio Verify + SMS, Claude deal matching/copy |
-| `backend/README.md` | Twilio + Anthropic account setup and run instructions |
+| `backend/` | Node/Express server: Twilio Verify + SMS, Claude deal matching/copy, Postgres storage |
+| `backend/README.md` | Twilio + Anthropic + Neon account setup and run instructions |
 
 ## Why plain HTML/CSS/JS on the front-end
 
@@ -46,20 +46,18 @@ migration is just swapping the front-end layer.
 ## What's real vs. still mocked
 
 **Real, working today:**
-- Browse/search/filter deals by category and keyword; admin CRUD (title,
-  discount, code, category, expiration, featured flag)
+- Browse/search/filter deals by category and keyword
+- Admin CRUD (add/edit/delete deals) writes through to the real backend —
+  changes show up on the public site for every visitor, not just
+  `localStorage` in one browser
+- Real Postgres (Neon) as the system of record for deals, users, and
+  engagement history — no more flat JSON files at runtime
 - With `backend/` running: real Twilio Verify OTP send + check, real SMS
   delivery, Claude picking the best-matching deal and writing the SMS copy,
   and a text-in entry point (`/api/sms-inbound`) for people who text your
   Twilio number directly
 
 **Still mocked / not built:**
-- Admin dashboard writes still go to `localStorage`, not the backend —
-  wiring `admin.html` to a real `/api/deals` CRUD endpoint is the natural
-  next step once you're managing real inventory.
-- The JSON-file user/deal store (`backend/data/`) stands in for the Postgres
-  system-of-record described in the roadmap doc — fine for testing, not for
-  real users.
 - 10DLC/A2P registration and full TCPA compliance (consent language, quiet
   hours, opt-out handling) — required before sending real marketing SMS at
   volume, noted in `backend/README.md`.

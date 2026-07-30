@@ -20,16 +20,28 @@ sends the SMS. This replaces the mocked flow in the front-end prototype.
 2. Go to API Keys → Create Key. Copy it into `ANTHROPIC_API_KEY`.
 3. Add billing / credits if needed (Console → Billing) — the free trial credit is usually enough for prototype-level testing.
 
-## 3. Configure and install
+## 3. Set up the database
+
+The app stores deals/users in Postgres (currently [Neon](https://neon.tech), free tier).
+
+1. Sign up at [neon.tech](https://neon.tech) and create a project.
+2. Copy the connection string it gives you into `DATABASE_URL` in `.env`.
+3. Run the migration once to create the schema and seed the deal catalog:
+   ```bash
+   npm run migrate
+   ```
+   Safe to re-run — it skips seeding if the `deals` table already has rows.
+
+## 4. Configure and install
 
 ```bash
 cd backend
 cp .env.example .env
-# open .env and fill in the 5 values from steps 1-2 above
+# open .env and fill in the 6 values from steps 1-3 above
 npm install
 ```
 
-## 4. Run it
+## 5. Run it
 
 ```bash
 npm run dev
@@ -44,7 +56,7 @@ If the backend isn't running (or you open `index.html` directly as a file),
 the front-end automatically falls back to the old mock flow — nothing
 breaks either way.
 
-## 5. Test the inbound-text flow (optional, needs a public URL)
+## 6. Test the inbound-text flow (optional, needs a public URL)
 
 To let people text your Twilio number directly (the "text number to begin"
 entry point from the plan), Twilio needs to reach your local server over the
@@ -62,12 +74,6 @@ flow as the website.
 
 ## What this does NOT include yet
 
-- A real database (currently a JSON file in `data/users.json` — fine for
-  testing, not for real users; swap in Postgres per the roadmap doc when
-  ready).
-- Admin dashboard writes still go to the browser's `localStorage`, not this
-  backend — connecting `admin.html` to a real `/api/deals` CRUD endpoint is
-  a natural next step.
 - 10DLC/A2P registration and TCPA compliance (consent language, quiet hours,
   opt-out handling) needed before sending real marketing SMS at volume.
 - The V2/V3 features from the roadmap (AI shopping agent, cashback matching,
