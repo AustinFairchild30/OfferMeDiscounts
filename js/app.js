@@ -294,8 +294,8 @@ function showToast(msg) {
 
 /* ---------------- init ---------------- */
 
-document.addEventListener("DOMContentLoaded", () => {
-  LIVE_DEALS = loadDeals();
+document.addEventListener("DOMContentLoaded", async () => {
+  LIVE_DEALS = await loadDeals();
   LIVE_CATEGORIES = getCategories(LIVE_DEALS);
   renderCategoryBar();
   renderFeatured();

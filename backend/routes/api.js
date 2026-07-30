@@ -8,7 +8,7 @@ const express = require("express");
 const twilio = require("twilio");
 const { sendVerificationCode, checkVerificationCode, sendSms } = require("../lib/twilioClient");
 const { pickBestDeal, writeSmsCopy, parseInboundIntent } = require("../lib/claudeClient");
-const { readDeals, getDealById } = require("../lib/dealsStore");
+const { readDeals, getDealById, addDeal, updateDeal, removeDeal, resetToSeed } = require("../lib/dealsStore");
 const { getUser, upsertUser, logEngagement } = require("../lib/userStore");
 
 const router = express.Router();
@@ -24,6 +24,33 @@ function toE164(raw) {
 
 router.get("/deals", (req, res) => {
   res.json(readDeals());
+});
+
+// Admin CRUD — backs admin.html's add/edit/delete instead of localStorage.
+router.post("/deals", (req, res) => {
+  const payload = req.body || {};
+  if (!payload.title || !payload.store || !payload.code || !payload.expires) {
+    return res.status(400).json({ success: false, error: "Title, store, code, and expiration date are required." });
+  }
+  const deal = addDeal(payload);
+  res.json({ success: true, deal });
+});
+
+router.put("/deals/:id", (req, res) => {
+  const deal = updateDeal(req.params.id, req.body || {});
+  if (!deal) return res.status(404).json({ success: false, error: "Deal not found." });
+  res.json({ success: true, deal });
+});
+
+router.delete("/deals/:id", (req, res) => {
+  const removed = removeDeal(req.params.id);
+  if (!removed) return res.status(404).json({ success: false, error: "Deal not found." });
+  res.json({ success: true });
+});
+
+router.post("/deals/reset", (req, res) => {
+  const deals = resetToSeed();
+  res.json({ success: true, deals });
 });
 
 router.get("/health", (req, res) => {

@@ -1,14 +1,14 @@
-// Admin dashboard logic. Writes to the same localStorage "deal store"
-// that the public site reads from, so changes here show up on
-// index.html immediately (open both in the same browser to see it).
-// In production this becomes a real CRUD API in front of Postgres
-// per the roadmap doc's tech stack section.
+// Admin dashboard logic. Reads/writes through the real /api/deals CRUD
+// endpoints (backend/data/deals.json) when server.js is running, so
+// changes here show up on index.html for every visitor. Falls back to
+// the localStorage-only "deal store" if the backend is unreachable
+// (e.g. admin.html opened as a plain file) — see js/store.js.
 
 let deals = [];
 let editingId = null;
 
-function refreshAll() {
-  deals = loadDeals();
+async function refreshAll() {
+  deals = await loadDeals();
   renderStats();
   renderTable();
   populateCategoryOptions();
@@ -100,17 +100,16 @@ function startEdit(id) {
   document.getElementById("dealForm").scrollIntoView({ behavior: "smooth" });
 }
 
-function deleteDeal(id) {
+async function deleteDeal(id) {
   const d = deals.find(x => x.id === id);
   if (!d) return;
   if (!confirm(`Delete "${d.title}"? This can't be undone.`)) return;
-  deals = deals.filter(x => x.id !== id);
-  saveDeals(deals);
-  refreshAll();
+  await deleteDealRemote(id);
+  await refreshAll();
   showToast("Deal deleted");
 }
 
-function submitDealForm(e) {
+async function submitDealForm(e) {
   e.preventDefault();
 
   let category = document.getElementById("fCategory").value;
@@ -141,23 +140,21 @@ function submitDealForm(e) {
   }
 
   if (editingId) {
-    deals = deals.map(d => (d.id === editingId ? { ...d, ...payload } : d));
+    await updateDealRemote(editingId, payload);
     showToast("Deal updated");
   } else {
-    payload.id = makeDealId(deals);
-    deals.push(payload);
+    await createDeal(payload);
     showToast("Deal added");
   }
 
-  saveDeals(deals);
-  refreshAll();
+  await refreshAll();
   resetForm();
 }
 
-function handleResetData() {
+async function handleResetData() {
   if (!confirm("Reset all deals back to the original sample data? Your edits will be lost.")) return;
-  deals = resetDeals();
-  refreshAll();
+  await resetDealsRemote();
+  await refreshAll();
   resetForm();
   showToast("Reset to sample data");
 }

@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "offermediscounts-backend",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd backend && npm run dev"],
+      "port": 3000
+    }
+  ]
+}

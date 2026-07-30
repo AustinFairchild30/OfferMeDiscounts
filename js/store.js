@@ -5,8 +5,15 @@
 // "system of record" described in the roadmap doc's tech stack section.
 
 const DEALS_STORE_KEY = "omd_deals_store";
+const DEALS_API_BASE = "/api/deals";
 
-function loadDeals() {
+// Backend-first: if server.js is running, every read/write goes through the
+// real /api/deals CRUD endpoints (backend/data/deals.json). If the backend
+// is unreachable (e.g. index.html/admin.html opened as plain files), every
+// function below falls back to the local-only localStorage store so the
+// prototype never breaks — same pattern as the SMS gate in app.js.
+
+function loadLocalDeals() {
   const raw = localStorage.getItem(DEALS_STORE_KEY);
   if (raw) {
     try {
@@ -19,8 +26,84 @@ function loadDeals() {
   return DEALS.slice();
 }
 
+async function loadDeals() {
+  try {
+    const res = await fetch(DEALS_API_BASE);
+    if (!res.ok) throw new Error(`status ${res.status}`);
+    const deals = await res.json();
+    localStorage.setItem(DEALS_STORE_KEY, JSON.stringify(deals));
+    return deals;
+  } catch (err) {
+    console.warn("Backend unavailable, using local deal store:", err.message);
+    return loadLocalDeals();
+  }
+}
+
 function saveDeals(deals) {
   localStorage.setItem(DEALS_STORE_KEY, JSON.stringify(deals));
+}
+
+async function createDeal(payload) {
+  try {
+    const res = await fetch(DEALS_API_BASE, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) throw new Error(data.error || "Create failed");
+    return data.deal;
+  } catch (err) {
+    console.warn("Backend unavailable, saving locally:", err.message);
+    const deals = loadLocalDeals();
+    const deal = { ...payload, id: makeDealId(deals) };
+    deals.push(deal);
+    saveDeals(deals);
+    return deal;
+  }
+}
+
+async function updateDealRemote(id, payload) {
+  try {
+    const res = await fetch(`${DEALS_API_BASE}/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) throw new Error(data.error || "Update failed");
+    return data.deal;
+  } catch (err) {
+    console.warn("Backend unavailable, updating locally:", err.message);
+    const deals = loadLocalDeals().map(d => (d.id === id ? { ...d, ...payload } : d));
+    saveDeals(deals);
+    return deals.find(d => d.id === id);
+  }
+}
+
+async function deleteDealRemote(id) {
+  try {
+    const res = await fetch(`${DEALS_API_BASE}/${id}`, { method: "DELETE" });
+    const data = await res.json();
+    if (!res.ok || !data.success) throw new Error(data.error || "Delete failed");
+  } catch (err) {
+    console.warn("Backend unavailable, deleting locally:", err.message);
+    const deals = loadLocalDeals().filter(d => d.id !== id);
+    saveDeals(deals);
+  }
+}
+
+async function resetDealsRemote() {
+  try {
+    const res = await fetch(`${DEALS_API_BASE}/reset`, { method: "POST" });
+    const data = await res.json();
+    if (!res.ok || !data.success) throw new Error(data.error || "Reset failed");
+    localStorage.setItem(DEALS_STORE_KEY, JSON.stringify(data.deals));
+    return data.deals;
+  } catch (err) {
+    console.warn("Backend unavailable, resetting locally:", err.message);
+    return resetDeals();
+  }
 }
 
 function resetDeals() {
