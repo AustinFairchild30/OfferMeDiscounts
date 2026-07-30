@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SMS Opt-In Proof — OfferMeDiscounts.com</title>
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-inner wrap">
+    <a href="index.html" class="logo">Offer<span class="tag">Me</span>Discounts</a>
+    <nav class="header-nav">
+      <a href="index.html#browse">Browse Deals</a>
+      <a href="admin.html">Admin</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap" style="max-width:760px; padding-top:32px; padding-bottom:48px;">
+  <h1>SMS Opt-In Point</h1>
+  <p style="color:var(--ink-soft);">
+    This page documents the exact opt-in step on OfferMeDiscounts.com for SMS compliance review.
+    On the live site (<a href="index.html">index.html</a>), this exact form appears in a modal
+    when a visitor clicks "Get Code" on any deal. It is reproduced here, unmodified, so the opt-in
+    point can be reviewed without needing to click through the site.
+  </p>
+
+  <div class="modal" style="position:static; margin:24px 0; max-width:420px;">
+    <div class="deal-emoji">🎧</div>
+    <h2>30% Off Wireless Headphones</h2>
+    <div class="modal-store">SoundWave Audio · Electronics</div>
+    <div class="modal-desc">Save 30% site-wide on noise-cancelling wireless headphones. Excludes clearance items.</div>
+
+    <div class="step active">
+      <label class="field-label" for="phoneInput">Text your number to unlock this code</label>
+      <input class="text-input" id="phoneInput" type="tel" placeholder="(555) 123-4567" disabled />
+      <button class="primary-btn" type="button" disabled>Text Me the Code</button>
+      <div class="disclaimer">By continuing you agree to receive automated marketing texts from OfferMeDiscounts.com. Msg &amp; data rates may apply. Reply STOP to opt out. (Simulated in this prototype — no real SMS is sent.)</div>
+    </div>
+  </div>
+
+  <h2>Opt-in methods</h2>
+  <ul>
+    <li><strong>Website form</strong> (shown above) — visitor enters their phone number and taps "Text Me the Code" on <a href="index.html">index.html</a>, giving explicit consent per the disclaimer text shown directly beneath the button.</li>
+    <li><strong>Keyword/text-in</strong> — a visitor may also text our number directly to begin; the first automated reply repeats the same consent and opt-out language before any marketing message is sent.</li>
+  </ul>
+
+  <p>See also: <a href="terms.html">Terms of Service</a> &middot; <a href="privacy.html">Privacy Policy</a></p>
+
+  <p style="margin-top:32px;"><a href="index.html">Back to home</a></p>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div>&copy; 2026 OfferMeDiscounts.com — prototype build.</div>
+    <div><a href="terms.html">Terms</a> &middot; <a href="privacy.html">Privacy</a> &middot; <a href="admin.html">Admin dashboard</a></div>
+  </div>
+</footer>
+
+</body>
+</html>
