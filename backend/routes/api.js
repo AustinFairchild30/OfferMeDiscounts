@@ -57,6 +57,19 @@ router.get("/health", (req, res) => {
   res.json({ ok: true });
 });
 
+// Saves a user's declared category interests (one-time preference survey
+// shown right after their first OTP confirmation) so pickBestDeal/writeSmsCopy
+// in claudeClient.js can actually personalize future deal picks/copy.
+router.post("/preferences", async (req, res) => {
+  const phone = toE164(req.body.phone);
+  if (!phone) {
+    return res.status(400).json({ success: false, error: "Missing phone." });
+  }
+  const interests = Array.isArray(req.body.interests) ? req.body.interests.filter(x => typeof x === "string") : [];
+  await upsertUser(phone, { interests });
+  res.json({ success: true });
+});
+
 // Step 1: web visitor requests a code for a specific deal.
 router.post("/register", async (req, res) => {
   const phone = toE164(req.body.phone);

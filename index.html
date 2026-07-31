@@ -111,6 +111,17 @@
       </form>
     </div>
 
+    <!-- Step 2.5: one-time preference survey (first registration only) -->
+    <div class="step" id="stepSurvey">
+      <form onsubmit="submitSurvey(event)">
+        <label class="field-label">What are you into?</label>
+        <p class="survey-intro">Pick a few categories and we'll personalize which deals we text you next.</p>
+        <div class="survey-grid" id="surveyCategories"></div>
+        <button class="primary-btn" style="margin-top:16px;" type="submit">Save preferences</button>
+      </form>
+      <button type="button" class="skip-link" onclick="skipSurvey()">Skip for now</button>
+    </div>
+
     <!-- Step 3: code reveal -->
     <div class="step" id="stepReveal">
       <div class="code-reveal">

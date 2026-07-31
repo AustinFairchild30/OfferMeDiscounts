@@ -242,24 +242,85 @@ async function submitOtp(e) {
       return;
     }
 
+    const isFirstRegistration = !localStorage.getItem(STORAGE_KEY);
     localStorage.setItem(STORAGE_KEY, phone);
     markUnlocked(pendingDealId);
-    document.getElementById("revealCode").textContent = data.code;
-    document.getElementById("revealNote").textContent = data.smsSent
-      ? "You're registered! We just texted you this deal — future deals will be personalized as you engage (V2 plan)."
-      : "You're registered! (SMS send skipped — check your backend's Twilio config in .env.)";
-    const preview = document.getElementById("revealSmsPreview");
-    if (data.message) {
-      preview.style.display = "block";
-      preview.innerHTML = `<strong>Claude wrote:</strong> ${data.message}`;
+
+    const revealData = {
+      code: data.code,
+      message: data.message,
+      note: data.smsSent
+        ? "You're registered! We just texted you this deal — future deals will be personalized based on your preferences."
+        : "You're registered! (SMS send skipped — check your backend's Twilio config in .env.)"
+    };
+
+    if (isFirstRegistration) {
+      showSurveyStep(phone, revealData);
     } else {
-      preview.style.display = "none";
+      populateRevealStep(revealData);
+      showStep("stepReveal");
     }
-    showStep("stepReveal");
     return;
   }
 
   mockUnlock(phone, deal);
+}
+
+function populateRevealStep(revealData) {
+  document.getElementById("revealCode").textContent = revealData.code;
+  document.getElementById("revealNote").textContent = revealData.note;
+  const preview = document.getElementById("revealSmsPreview");
+  if (revealData.message) {
+    preview.style.display = "block";
+    preview.innerHTML = `<strong>Claude wrote:</strong> ${revealData.message}`;
+  } else {
+    preview.style.display = "none";
+  }
+}
+
+let pendingSurveyPhone = null;
+let pendingRevealData = null;
+
+function showSurveyStep(phone, revealData) {
+  pendingSurveyPhone = phone;
+  pendingRevealData = revealData;
+  const grid = document.getElementById("surveyCategories");
+  grid.innerHTML = LIVE_CATEGORIES.map(
+    c => `
+    <label class="survey-chip">
+      <input type="checkbox" value="${c}" />
+      <span>${c}</span>
+    </label>`
+  ).join("");
+  showStep("stepSurvey");
+}
+
+async function submitSurvey(e) {
+  e.preventDefault();
+  const checked = Array.from(document.querySelectorAll("#surveyCategories input:checked")).map(i => i.value);
+  if (checked.length) {
+    try {
+      await fetch("/api/preferences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: pendingSurveyPhone, interests: checked })
+      });
+    } catch (err) {
+      console.warn("Could not save preferences, continuing anyway:", err.message);
+    }
+  }
+  finishSurvey();
+}
+
+function skipSurvey() {
+  finishSurvey();
+}
+
+function finishSurvey() {
+  populateRevealStep(pendingRevealData);
+  pendingSurveyPhone = null;
+  pendingRevealData = null;
+  showStep("stepReveal");
 }
 
 function mockUnlock(phone, deal) {

@@ -372,6 +372,44 @@ nav.header-nav a:hover { color: var(--ink); }
   border-radius: 10px;
 }
 
+.survey-intro {
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin: 0 0 14px;
+}
+.survey-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+}
+.survey-chip {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 9px 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.survey-chip:has(input:checked) {
+  border-color: var(--brand-orange);
+  background: #fff0e8;
+  color: var(--brand-orange-dark);
+}
+.survey-chip input { accent-color: var(--brand-orange); }
+.skip-link {
+  display: block;
+  width: 100%;
+  text-align: center;
+  background: none;
+  border: none;
+  color: var(--ink-soft);
+  font-size: 13px;
+  margin-top: 12px;
+  text-decoration: underline;
+}
+
 .sms-hint {
   background: var(--bg);
   border: 1px dashed var(--border);
