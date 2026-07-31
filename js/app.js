@@ -246,13 +246,15 @@ async function submitOtp(e) {
     localStorage.setItem(STORAGE_KEY, phone);
     markUnlocked(pendingDealId);
 
-    const revealData = {
-      code: data.code,
-      message: data.message,
-      note: data.smsSent
-        ? "You're registered! We just texted you this deal — future deals will be personalized based on your preferences."
-        : "You're registered! (SMS send skipped — check your backend's Twilio config in .env.)"
-    };
+    let note;
+    if (data.smsSent) {
+      note = "You're registered! We just texted you this deal — future deals will be personalized based on your preferences.";
+    } else if (data.optedOut) {
+      note = "Here's your code. We didn't text it since you'd previously opted out — reply START to your last message from us if you'd like texts again.";
+    } else {
+      note = "You're registered! (SMS send skipped — check your backend's Twilio config in .env.)";
+    }
+    const revealData = { code: data.code, message: data.message, note };
 
     if (isFirstRegistration) {
       showSurveyStep(phone, revealData);
