@@ -24,12 +24,25 @@ function getClient() {
 const MATCHING_MODEL = "claude-sonnet-5";
 const COPY_MODEL = "claude-haiku-4-5-20251001";
 
-// Ranks a list of deals against a user's declared interests / recent
-// engagement and returns the best match. Falls back to the first deal
-// if Claude's pick can't be parsed for any reason.
+// Derives an implicit brand signal from a user's past engagement — the
+// stores behind deals they've already unlocked — without needing any
+// extra input from them. Cross-references against the current deals
+// list since engagement_events only stores a deal_id.
+function engagedStores(user, deals) {
+  const dealIds = new Set((user?.engagement || []).map(e => e.dealId));
+  if (!dealIds.size) return [];
+  return [...new Set(deals.filter(d => dealIds.has(d.id)).map(d => d.store))];
+}
+
+// Ranks a list of deals against a user's declared interests, explicit
+// favorite brands, and implicit engagement history, and returns the best
+// match. Falls back to the first deal if Claude's pick can't be parsed.
 async function pickBestDeal(deals, user) {
   const client = getClient();
   const interests = user?.interests?.length ? user.interests.join(", ") : "no declared interests yet";
+  const favoriteBrands = user?.favoriteBrands?.length ? user.favoriteBrands.join(", ") : "none declared";
+  const pastStores = engagedStores(user, deals);
+  const engagementNote = pastStores.length ? pastStores.join(", ") : "no prior engagement yet";
 
   const dealList = deals
     .map(d => `${d.id} | ${d.category} | ${d.store} | ${d.title} | expires ${d.expires}`)
@@ -39,13 +52,19 @@ async function pickBestDeal(deals, user) {
     model: MATCHING_MODEL,
     max_tokens: 20,
     system:
-      "You are a discount-matching agent for a coupon platform. Given a user's interests and a list of " +
-      "candidate deals, respond with ONLY the id of the single best deal for that user. No explanation, " +
-      "just the id (e.g. d004).",
+      "You are a discount-matching agent for a coupon platform. Given a user's interests, their explicitly " +
+      "declared favorite brands/stores, the stores they've previously engaged with, and a list of candidate " +
+      "deals, respond with ONLY the id of the single best deal for that user. Prioritize an exact or close " +
+      "match on favorite brands/stores first, then category interests, then past engagement, then general " +
+      "appeal. No explanation, just the id (e.g. d004).",
     messages: [
       {
         role: "user",
-        content: `User interests: ${interests}\n\nCandidate deals:\n${dealList}\n\nBest deal id:`
+        content:
+          `User category interests: ${interests}\n` +
+          `User declared favorite brands/stores: ${favoriteBrands}\n` +
+          `Stores user has engaged with before: ${engagementNote}\n\n` +
+          `Candidate deals:\n${dealList}\n\nBest deal id:`
       }
     ]
   });
@@ -59,6 +78,7 @@ async function pickBestDeal(deals, user) {
 async function writeSmsCopy(user, deal) {
   const client = getClient();
   const interestNote = user?.interests?.length ? `They've shown interest in: ${user.interests.join(", ")}.` : "";
+  const brandNote = user?.favoriteBrands?.length ? ` Their favorite brands/stores: ${user.favoriteBrands.join(", ")}.` : "";
 
   const msg = await client.messages.create({
     model: COPY_MODEL,
@@ -73,7 +93,7 @@ async function writeSmsCopy(user, deal) {
         content:
           `Write the SMS for this deal.\n` +
           `Store: ${deal.store}\nOffer: ${deal.title} (${deal.discount})\nCode: ${deal.code}\n` +
-          `Expires: ${deal.expires}\n${interestNote}`
+          `Expires: ${deal.expires}\n${interestNote}${brandNote}`
       }
     ]
   });

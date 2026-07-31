@@ -292,18 +292,25 @@ function showSurveyStep(phone, revealData) {
       <span>${c}</span>
     </label>`
   ).join("");
+  document.getElementById("surveyBrandsInput").value = "";
   showStep("stepSurvey");
 }
 
 async function submitSurvey(e) {
   e.preventDefault();
   const checked = Array.from(document.querySelectorAll("#surveyCategories input:checked")).map(i => i.value);
-  if (checked.length) {
+  const brandsRaw = document.getElementById("surveyBrandsInput").value;
+  const favoriteBrands = brandsRaw
+    .split(",")
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  if (checked.length || favoriteBrands.length) {
     try {
       await fetch("/api/preferences", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: pendingSurveyPhone, interests: checked })
+        body: JSON.stringify({ phone: pendingSurveyPhone, interests: checked, favoriteBrands })
       });
     } catch (err) {
       console.warn("Could not save preferences, continuing anyway:", err.message);

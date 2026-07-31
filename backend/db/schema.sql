@@ -17,11 +17,15 @@ CREATE TABLE IF NOT EXISTS deals (
 );
 
 CREATE TABLE IF NOT EXISTS users (
-  phone         TEXT PRIMARY KEY,
-  registered_at TIMESTAMPTZ,
-  verified      BOOLEAN NOT NULL DEFAULT FALSE,
-  interests     JSONB NOT NULL DEFAULT '[]'::jsonb
+  phone           TEXT PRIMARY KEY,
+  registered_at   TIMESTAMPTZ,
+  verified        BOOLEAN NOT NULL DEFAULT FALSE,
+  interests       JSONB NOT NULL DEFAULT '[]'::jsonb,
+  favorite_brands JSONB NOT NULL DEFAULT '[]'::jsonb
 );
+
+-- Safe to re-run: adds the column if this schema.sql ran before favorite_brands existed.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS favorite_brands JSONB NOT NULL DEFAULT '[]'::jsonb;
 
 CREATE TABLE IF NOT EXISTS engagement_events (
   id         SERIAL PRIMARY KEY,

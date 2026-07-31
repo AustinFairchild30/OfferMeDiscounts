@@ -66,7 +66,10 @@ router.post("/preferences", async (req, res) => {
     return res.status(400).json({ success: false, error: "Missing phone." });
   }
   const interests = Array.isArray(req.body.interests) ? req.body.interests.filter(x => typeof x === "string") : [];
-  await upsertUser(phone, { interests });
+  const favoriteBrands = Array.isArray(req.body.favoriteBrands)
+    ? req.body.favoriteBrands.filter(x => typeof x === "string" && x.trim()).map(x => x.trim())
+    : [];
+  await upsertUser(phone, { interests, favoriteBrands });
   res.json({ success: true });
 });
 
