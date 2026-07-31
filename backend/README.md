@@ -32,16 +32,26 @@ The app stores deals/users in Postgres (currently [Neon](https://neon.tech), fre
    ```
    Safe to re-run — it skips seeding if the `deals` table already has rows.
 
-## 4. Configure and install
+## 4. Set up admin login
+
+`admin.html` (add/edit/delete deals) requires logging in — set two values in `.env`:
+
+- `ADMIN_PASSWORD` — pick your own password.
+- `SESSION_SECRET` — a random signing secret, not something you type in anywhere. Generate one with:
+  ```bash
+  node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+  ```
+
+## 5. Configure and install
 
 ```bash
 cd backend
 cp .env.example .env
-# open .env and fill in the 6 values from steps 1-3 above
+# open .env and fill in the 8 values from steps 1-4 above
 npm install
 ```
 
-## 5. Run it
+## 6. Run it
 
 ```bash
 npm run dev
@@ -56,7 +66,7 @@ If the backend isn't running (or you open `index.html` directly as a file),
 the front-end automatically falls back to the old mock flow — nothing
 breaks either way.
 
-## 6. Test the inbound-text flow (optional, needs a public URL)
+## 7. Test the inbound-text flow (optional, needs a public URL)
 
 To let people text your Twilio number directly (the "text number to begin"
 entry point from the plan), Twilio needs to reach your local server over the

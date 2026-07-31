@@ -27,10 +27,10 @@ isn't running, so it never breaks either way.
 | `index.html` | Public site: hero, featured deals, category filter, search, deal grid |
 | `admin.html` | Admin dashboard: stats, add/edit/delete deals, category management |
 | `css/styles.css` | All styling |
-| `js/deals-data.js` | Seed data — 24 sample deals across 8 categories |
-| `js/store.js` | Shared localStorage-backed "deal store" used by both front-end pages |
-| `js/app.js` | Public site logic: search, filtering, the SMS-gate modal (real + mock) |
-| `js/admin.js` | Admin CRUD logic (still localStorage-only — see below) |
+| `js/deals-data.js` | Seed/fallback data, used only if the backend is unreachable |
+| `js/store.js` | Shared deal store — backend-first, falls back to localStorage if unreachable |
+| `js/app.js` | Public site logic: search, filtering, the SMS-gate modal + preference survey (real + mock) |
+| `js/admin.js` | Admin CRUD logic — real backend, requires login (see `admin-login.html`) |
 | `backend/` | Node/Express server: Twilio Verify + SMS, Claude deal matching/copy, Postgres storage |
 | `backend/README.md` | Twilio + Anthropic + Neon account setup and run instructions |
 
@@ -47,9 +47,9 @@ migration is just swapping the front-end layer.
 
 **Real, working today:**
 - Browse/search/filter deals by category and keyword
-- Admin CRUD (add/edit/delete deals) writes through to the real backend —
-  changes show up on the public site for every visitor, not just
-  `localStorage` in one browser
+- Admin CRUD (add/edit/delete deals), password-protected, writes through to
+  the real backend — changes show up on the public site for every visitor,
+  not just `localStorage` in one browser
 - Real Postgres (Neon) as the system of record for deals, users, and
   engagement history — no more flat JSON files at runtime
 - With `backend/` running: real Twilio Verify OTP send + check, real SMS

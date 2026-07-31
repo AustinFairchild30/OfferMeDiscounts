@@ -7,6 +7,16 @@
 let deals = [];
 let editingId = null;
 
+async function adminLogout(e) {
+  e.preventDefault();
+  try {
+    await fetch("/api/admin/logout", { method: "POST" });
+  } catch {
+    // ignore — redirecting either way
+  }
+  window.location.href = "admin-login.html";
+}
+
 async function refreshAll() {
   deals = await loadDeals();
   renderStats();

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Admin Login — OfferMeDiscounts.com</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8F%B7%EF%B8%8F%3C/text%3E%3C/svg%3E" />
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-inner wrap">
+    <a href="index.html" class="logo">Offer<span class="tag">Me</span>Discounts</a>
+  </div>
+</header>
+
+<main class="wrap" style="max-width:380px; padding-top:64px;">
+  <div class="modal" style="position:static; max-width:none; box-shadow:var(--shadow);">
+    <h2 style="margin-top:0;">Admin login</h2>
+    <form id="loginForm">
+      <label class="field-label" for="passwordInput">Password</label>
+      <input class="text-input" id="passwordInput" type="password" autocomplete="current-password" autofocus />
+      <button class="primary-btn" type="submit" id="loginBtn">Log in</button>
+      <div class="disclaimer" id="loginError" style="color:#d64545; display:none;"></div>
+    </form>
+  </div>
+</main>
+
+<script>
+document.getElementById("loginForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById("loginBtn");
+  const errorEl = document.getElementById("loginError");
+  const password = document.getElementById("passwordInput").value;
+  errorEl.style.display = "none";
+  btn.disabled = true;
+  btn.textContent = "Logging in…";
+
+  try {
+    const res = await fetch("/api/admin/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) throw new Error(data.error || "Login failed.");
+    window.location.href = "admin.html";
+  } catch (err) {
+    errorEl.textContent = err.message;
+    errorEl.style.display = "block";
+    btn.disabled = false;
+    btn.textContent = "Log in";
+  }
+});
+</script>
+
+</body>
+</html>

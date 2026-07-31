@@ -10,8 +10,27 @@ const { sendVerificationCode, checkVerificationCode, sendSms } = require("../lib
 const { pickBestDeal, writeSmsCopy, parseInboundIntent } = require("../lib/claudeClient");
 const { readDeals, getDealById, addDeal, updateDeal, removeDeal, resetToSeed } = require("../lib/dealsStore");
 const { getUser, upsertUser, logEngagement } = require("../lib/userStore");
+const { COOKIE_NAME, SESSION_TTL_MS, createSessionToken, checkPassword, requireAdmin } = require("../lib/adminAuth");
 
 const router = express.Router();
+
+router.post("/admin/login", (req, res) => {
+  if (!checkPassword(req.body?.password)) {
+    return res.status(401).json({ success: false, error: "Incorrect password." });
+  }
+  res.cookie(COOKIE_NAME, createSessionToken(), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: req.secure || req.headers["x-forwarded-proto"] === "https",
+    maxAge: SESSION_TTL_MS
+  });
+  res.json({ success: true });
+});
+
+router.post("/admin/logout", (req, res) => {
+  res.clearCookie(COOKIE_NAME);
+  res.json({ success: true });
+});
 
 function toE164(raw) {
   const digits = String(raw || "").replace(/\D/g, "");
@@ -27,7 +46,8 @@ router.get("/deals", async (req, res) => {
 });
 
 // Admin CRUD — backs admin.html's add/edit/delete instead of localStorage.
-router.post("/deals", async (req, res) => {
+// Protected: requires a valid admin session (see /admin/login above).
+router.post("/deals", requireAdmin, async (req, res) => {
   const payload = req.body || {};
   if (!payload.title || !payload.store || !payload.code || !payload.expires) {
     return res.status(400).json({ success: false, error: "Title, store, code, and expiration date are required." });
@@ -36,19 +56,19 @@ router.post("/deals", async (req, res) => {
   res.json({ success: true, deal });
 });
 
-router.put("/deals/:id", async (req, res) => {
+router.put("/deals/:id", requireAdmin, async (req, res) => {
   const deal = await updateDeal(req.params.id, req.body || {});
   if (!deal) return res.status(404).json({ success: false, error: "Deal not found." });
   res.json({ success: true, deal });
 });
 
-router.delete("/deals/:id", async (req, res) => {
+router.delete("/deals/:id", requireAdmin, async (req, res) => {
   const removed = await removeDeal(req.params.id);
   if (!removed) return res.status(404).json({ success: false, error: "Deal not found." });
   res.json({ success: true });
 });
 
-router.post("/deals/reset", async (req, res) => {
+router.post("/deals/reset", requireAdmin, async (req, res) => {
   const deals = await resetToSeed();
   res.json({ success: true, deals });
 });

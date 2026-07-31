@@ -43,6 +43,18 @@ function saveDeals(deals) {
   localStorage.setItem(DEALS_STORE_KEY, JSON.stringify(deals));
 }
 
+// A 401 means the admin session expired/was never logged in — that's a
+// real "you're not allowed" answer, not a "backend is unreachable" one,
+// so send the admin to log in rather than silently editing a local-only
+// copy that would never actually persist.
+function redirectToAdminLoginIfUnauthorized(res) {
+  if (res.status === 401) {
+    window.location.href = "admin-login.html";
+    return true;
+  }
+  return false;
+}
+
 async function createDeal(payload) {
   try {
     const res = await fetch(DEALS_API_BASE, {
@@ -50,6 +62,7 @@ async function createDeal(payload) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     });
+    if (redirectToAdminLoginIfUnauthorized(res)) return null;
     const data = await res.json();
     if (!res.ok || !data.success) throw new Error(data.error || "Create failed");
     return data.deal;
@@ -70,6 +83,7 @@ async function updateDealRemote(id, payload) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     });
+    if (redirectToAdminLoginIfUnauthorized(res)) return null;
     const data = await res.json();
     if (!res.ok || !data.success) throw new Error(data.error || "Update failed");
     return data.deal;
@@ -84,6 +98,7 @@ async function updateDealRemote(id, payload) {
 async function deleteDealRemote(id) {
   try {
     const res = await fetch(`${DEALS_API_BASE}/${id}`, { method: "DELETE" });
+    if (redirectToAdminLoginIfUnauthorized(res)) return;
     const data = await res.json();
     if (!res.ok || !data.success) throw new Error(data.error || "Delete failed");
   } catch (err) {
@@ -96,6 +111,7 @@ async function deleteDealRemote(id) {
 async function resetDealsRemote() {
   try {
     const res = await fetch(`${DEALS_API_BASE}/reset`, { method: "POST" });
+    if (redirectToAdminLoginIfUnauthorized(res)) return null;
     const data = await res.json();
     if (!res.ok || !data.success) throw new Error(data.error || "Reset failed");
     localStorage.setItem(DEALS_STORE_KEY, JSON.stringify(data.deals));
