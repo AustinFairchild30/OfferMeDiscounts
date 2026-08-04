@@ -95,13 +95,13 @@
         <label class="field-label" for="phoneInput">Text your number to unlock this code</label>
         <input class="text-input" id="phoneInput" type="tel" placeholder="(555) 123-4567" />
         <button class="primary-btn" id="sendCodeBtn" type="submit">Text Me the Code</button>
-        <div class="disclaimer">By continuing you agree to receive automated marketing texts from OfferMeDiscounts.com. Msg &amp; data rates may apply. Reply STOP to opt out. (Simulated in this prototype — no real SMS is sent.)</div>
+        <div class="disclaimer">By continuing you agree to receive automated marketing texts from OfferMeDiscounts.com. Msg &amp; data rates may apply. Reply STOP to opt out.</div>
       </form>
     </div>
 
     <!-- Step 2: OTP confirm -->
     <div class="step" id="stepOtp">
-      <div class="sms-hint">We texted a 4-digit code to <strong id="otpPhoneDisplay"></strong>. (Demo: enter any 4+ digits.)</div>
+      <div class="sms-hint">We texted a verification code to <strong id="otpPhoneDisplay"></strong>.</div>
       <form onsubmit="submitOtp(event)">
         <label class="field-label" for="otpInput">Enter confirmation code</label>
         <div class="otp-row">
