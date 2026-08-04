@@ -14,6 +14,27 @@ let pendingDealId = null;
 let LIVE_DEALS = [];
 let LIVE_CATEGORIES = [];
 
+// Fine-grained interest tags shown per category in the preference survey.
+// "Electronics" alone doesn't tell pickBestDeal whether someone wants
+// headphones or laptops, so the survey collects these specific strings
+// instead — they're sent to Claude as free text, same as before, so no
+// backend change was needed. Any category not listed here (e.g. a new one
+// an admin adds later) just falls back to showing itself as a single chip.
+const SURVEY_TAGS = {
+  "Automotive": ["Oil Changes & Maintenance", "Car Detailing", "Dash Cams & Car Electronics"],
+  "Baby & Kids": ["Baby Gear & Strollers", "Kids Books & Toys"],
+  "Beauty & Personal Care": ["Skincare", "Haircare", "Fragrance", "Dental & Oral Care"],
+  "Books & Media": ["Books", "Audiobooks", "Board Games"],
+  "Electronics": ["Audio & Headphones", "Computers & Laptops", "Smart Home", "Gaming Gear"],
+  "Entertainment & Streaming": ["Streaming Services", "Concerts & Events", "Movies"],
+  "Fashion & Apparel": ["Clothing", "Shoes"],
+  "Fitness & Outdoors": ["Yoga & Studio Gear", "Running & Athletic Wear", "Camping & Outdoor Gear", "Fitness Equipment"],
+  "Food & Dining": ["Meal Kits & Groceries", "Restaurants & Dining Out", "Coffee & Beverages"],
+  "Home & Garden": ["Furniture & Outdoor", "Smart Home & Appliances", "Bedding & Bath", "Kitchen"],
+  "Pets": ["Dog Supplies", "Cat Supplies", "Pet Grooming", "Aquarium & Other Pets"],
+  "Travel": ["Flights", "Hotels", "Rental Cars", "Cruises"]
+};
+
 function getUnlockedDeals() {
   try {
     return JSON.parse(localStorage.getItem(UNLOCKED_KEY) || "[]");
@@ -287,15 +308,40 @@ function showSurveyStep(phone, revealData) {
   pendingSurveyPhone = phone;
   pendingRevealData = revealData;
   const grid = document.getElementById("surveyCategories");
-  grid.innerHTML = LIVE_CATEGORIES.map(
-    c => `
-    <label class="survey-chip">
-      <input type="checkbox" value="${c}" />
-      <span>${c}</span>
-    </label>`
-  ).join("");
+  grid.innerHTML = LIVE_CATEGORIES.map((c, i) => {
+    const tags = SURVEY_TAGS[c] || [c];
+    return `
+    <div class="survey-group">
+      <button type="button" class="survey-group-header" onclick="toggleSurveyGroup(${i})">
+        <span>${c}</span>
+        <span class="survey-group-chevron" id="surveyChevron${i}">+</span>
+      </button>
+      <div class="survey-group-tags" id="surveyGroupTags${i}" hidden>
+        ${tags.map(
+          t => `
+        <label class="survey-chip">
+          <input type="checkbox" value="${t}" />
+          <span>${t}</span>
+        </label>`
+        ).join("")}
+      </div>
+    </div>`;
+  }).join("");
   document.getElementById("surveyBrandsInput").value = "";
   showStep("stepSurvey");
+}
+
+function toggleSurveyGroup(i) {
+  const tagsEl = document.getElementById(`surveyGroupTags${i}`);
+  const chevronEl = document.getElementById(`surveyChevron${i}`);
+  const isHidden = tagsEl.hasAttribute("hidden");
+  if (isHidden) {
+    tagsEl.removeAttribute("hidden");
+    chevronEl.textContent = "−";
+  } else {
+    tagsEl.setAttribute("hidden", "");
+    chevronEl.textContent = "+";
+  }
 }
 
 async function submitSurvey(e) {

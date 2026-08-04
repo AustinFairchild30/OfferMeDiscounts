@@ -378,9 +378,41 @@ nav.header-nav a:hover { color: var(--ink); }
   margin: 0 0 14px;
 }
 .survey-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.survey-group {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.survey-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  border: none;
+  background: var(--card);
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+.survey-group-header:has(+ .survey-group-tags:not([hidden])) { background: var(--bg); }
+.survey-group-chevron {
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+.survey-group-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 10px 10px;
 }
 .survey-chip {
   display: flex;
