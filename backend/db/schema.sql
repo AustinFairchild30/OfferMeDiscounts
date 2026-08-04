@@ -36,7 +36,10 @@ CREATE TABLE IF NOT EXISTS engagement_events (
   category   TEXT,
   sms_sent   BOOLEAN,
   via        TEXT,
+  disliked   BOOLEAN NOT NULL DEFAULT FALSE,
   at         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE engagement_events ADD COLUMN IF NOT EXISTS disliked BOOLEAN NOT NULL DEFAULT FALSE;
 
 CREATE INDEX IF NOT EXISTS engagement_events_phone_idx ON engagement_events(phone);

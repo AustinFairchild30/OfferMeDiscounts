@@ -9,7 +9,7 @@ const twilio = require("twilio");
 const { sendVerificationCode, checkVerificationCode, sendSms } = require("../lib/twilioClient");
 const { pickBestDeal, writeSmsCopy, parseInboundIntent } = require("../lib/claudeClient");
 const { readDeals, getDealById, addDeal, updateDeal, removeDeal, resetToSeed } = require("../lib/dealsStore");
-const { getUser, upsertUser, logEngagement } = require("../lib/userStore");
+const { getUser, upsertUser, logEngagement, markLastEngagementDisliked } = require("../lib/userStore");
 const { COOKIE_NAME, SESSION_TTL_MS, createSessionToken, checkPassword, requireAdmin } = require("../lib/adminAuth");
 
 const router = express.Router();
@@ -207,6 +207,16 @@ router.post("/sms-inbound", express.urlencoded({ extended: false }), async (req,
         // requires acknowledging STOP, that's the one exception.
         await upsertUser(from, { optedOut: true });
         twiml.message("You're unsubscribed from OfferMeDiscounts texts. Text START anytime to rejoin.");
+      } else if (intent === "not_interested") {
+        // A real negative signal (unlike engagement_events' default rows,
+        // which only mean "we sent this," not "they liked it") — attaches
+        // to whichever deal we most recently sent this phone.
+        const marked = await markLastEngagementDisliked(from);
+        twiml.message(
+          marked
+            ? "Got it — we'll steer away from deals like that. Text us anytime for a new one, or STOP to opt out entirely."
+            : "Thanks for the feedback! Text us anytime to get a deal."
+        );
       } else {
         // Treat "start" and anything unrecognized as the registration gate,
         // matching the plan's "text number to begin" flow. Also clears any

@@ -17,6 +17,7 @@ function rowToUser(userRow, engagementRows) {
       category: e.category,
       smsSent: e.sms_sent,
       via: e.via || undefined,
+      disliked: !!e.disliked,
       at: e.at
     }))
   };
@@ -67,4 +68,19 @@ async function logEngagement(phone, entry) {
   );
 }
 
-module.exports = { getUser, upsertUser, logEngagement };
+// Marks the most recent deal sent to this phone as disliked, so pickBestDeal
+// can steer away from that store/category next time. Returns false if the
+// user has no prior engagement to attach the feedback to.
+async function markLastEngagementDisliked(phone) {
+  const { rows } = await pool.query(
+    `UPDATE engagement_events SET disliked = TRUE
+     WHERE id = (
+       SELECT id FROM engagement_events WHERE phone = $1 ORDER BY at DESC LIMIT 1
+     )
+     RETURNING id`,
+    [phone]
+  );
+  return rows.length > 0;
+}
+
+module.exports = { getUser, upsertUser, logEngagement, markLastEngagementDisliked };
