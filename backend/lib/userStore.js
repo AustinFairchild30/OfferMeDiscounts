@@ -18,6 +18,7 @@ function rowToUser(userRow, engagementRows) {
       smsSent: e.sms_sent,
       via: e.via || undefined,
       disliked: !!e.disliked,
+      explicit: !!e.explicit,
       at: e.at
     }))
   };
@@ -62,9 +63,9 @@ async function logEngagement(phone, entry) {
   const user = await getUser(phone);
   if (!user) return;
   await pool.query(
-    `INSERT INTO engagement_events (phone, deal_id, category, sms_sent, via)
-     VALUES ($1,$2,$3,$4,$5)`,
-    [phone, entry.dealId, entry.category, !!entry.smsSent, entry.via || null]
+    `INSERT INTO engagement_events (phone, deal_id, category, sms_sent, via, explicit)
+     VALUES ($1,$2,$3,$4,$5,$6)`,
+    [phone, entry.dealId, entry.category, !!entry.smsSent, entry.via || null, !!entry.explicit]
   );
 }
 

@@ -125,7 +125,10 @@ router.post("/confirm", async (req, res) => {
     }
 
     const deals = await readDeals();
-    const deal = (await getDealById(dealId)) || (await pickBestDeal(deals, await getUser(phone)));
+    // A dealId means the user picked this specific deal on the site (a real
+    // buying-intent signal) rather than us guessing via pickBestDeal.
+    const requestedDeal = dealId ? await getDealById(dealId) : null;
+    const deal = requestedDeal || (await pickBestDeal(deals, await getUser(phone)));
 
     const existing = await getUser(phone);
     await upsertUser(phone, {
@@ -150,7 +153,7 @@ router.post("/confirm", async (req, res) => {
       }
     }
 
-    await logEngagement(phone, { dealId: deal.id, category: deal.category, smsSent });
+    await logEngagement(phone, { dealId: deal.id, category: deal.category, smsSent, explicit: !!requestedDeal });
 
     res.json({ success: true, code: deal.code, message: smsText, smsSent, optedOut: !!existing?.optedOut });
   } catch (err) {
