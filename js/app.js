@@ -295,7 +295,7 @@ function populateRevealStep(revealData) {
   const preview = document.getElementById("revealSmsPreview");
   if (revealData.message) {
     preview.style.display = "block";
-    preview.innerHTML = `<strong>Claude wrote:</strong> ${revealData.message}`;
+    preview.textContent = revealData.message;
   } else {
     preview.style.display = "none";
   }
