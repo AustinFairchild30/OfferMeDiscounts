@@ -34,6 +34,21 @@ async function getUser(phone) {
   return rowToUser(rows[0], engagement);
 }
 
+// Lean list of all users (no per-user engagement fetch) for the new-deal
+// alert check in routes/api.js, which only needs favoriteBrands/verified/
+// optedOut, not full history.
+async function getAllUsers() {
+  const { rows } = await pool.query("SELECT * FROM users");
+  return rows.map(r => ({
+    phone: r.phone,
+    registeredAt: r.registered_at,
+    verified: r.verified,
+    interests: r.interests || [],
+    favoriteBrands: r.favorite_brands || [],
+    optedOut: !!r.opted_out
+  }));
+}
+
 async function upsertUser(phone, patch) {
   const existing = await getUser(phone);
   const merged = {
@@ -84,4 +99,4 @@ async function markLastEngagementDisliked(phone) {
   return rows.length > 0;
 }
 
-module.exports = { getUser, upsertUser, logEngagement, markLastEngagementDisliked };
+module.exports = { getUser, getAllUsers, upsertUser, logEngagement, markLastEngagementDisliked };

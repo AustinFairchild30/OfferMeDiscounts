@@ -10,7 +10,7 @@ const twilio = require("twilio");
 const { sendVerificationCode, checkVerificationCode, sendSms } = require("../lib/twilioClient");
 const { pickBestDeal, writeSmsCopy, parseInboundIntent } = require("../lib/claudeClient");
 const { readDeals, getDealById, addDeal, updateDeal, removeDeal, resetToSeed } = require("../lib/dealsStore");
-const { getUser, upsertUser, logEngagement, markLastEngagementDisliked } = require("../lib/userStore");
+const { getUser, getAllUsers, upsertUser, logEngagement, markLastEngagementDisliked } = require("../lib/userStore");
 const { COOKIE_NAME, SESSION_TTL_MS, createSessionToken, checkPassword, requireAdmin } = require("../lib/adminAuth");
 
 const router = express.Router();
@@ -105,6 +105,47 @@ router.get("/deals", async (req, res) => {
   res.json(await readDeals());
 });
 
+// When a new deal matches something a user explicitly told us they like
+// (a favorite brand/store), text them right away instead of waiting for
+// them to come back and ask. Deliberately conservative: only an explicit
+// favorite match qualifies, not a broad category interest, since "we
+// texted you about every Electronics deal" would wear out its welcome
+// fast. Failures for one user don't stop the rest.
+async function notifyMatchingUsers(deal) {
+  let users;
+  try {
+    users = await getAllUsers();
+  } catch (err) {
+    console.error("notifyMatchingUsers: could not load users:", err.message);
+    return 0;
+  }
+
+  const store = (deal.store || "").toLowerCase();
+  const brand = (deal.brand || "").toLowerCase();
+  let notified = 0;
+
+  for (const user of users) {
+    if (!user.verified || user.optedOut) continue;
+    const isMatch = (user.favoriteBrands || []).some(fav => {
+      const f = fav.toLowerCase().trim();
+      if (!f) return false;
+      return store.includes(f) || f.includes(store) || (brand && (brand.includes(f) || f.includes(brand)));
+    });
+    if (!isMatch) continue;
+
+    try {
+      const smsText = await writeSmsCopy(user, deal);
+      await sendSms(user.phone, smsText);
+      await logEngagement(user.phone, { dealId: deal.id, category: deal.category, smsSent: true, via: "new_deal_alert" });
+      notified++;
+    } catch (err) {
+      console.warn(`notifyMatchingUsers: alert failed for ${user.phone}:`, err.message);
+    }
+  }
+
+  return notified;
+}
+
 // Admin CRUD — backs admin.html's add/edit/delete instead of localStorage.
 // Protected: requires a valid admin session (see /admin/login above).
 router.post("/deals", requireAdmin, async (req, res) => {
@@ -113,7 +154,8 @@ router.post("/deals", requireAdmin, async (req, res) => {
     return res.status(400).json({ success: false, error: "Title, store, code, and expiration date are required." });
   }
   const deal = await addDeal(payload);
-  res.json({ success: true, deal });
+  const notified = await notifyMatchingUsers(deal);
+  res.json({ success: true, deal, notified });
 });
 
 router.put("/deals/:id", requireAdmin, async (req, res) => {

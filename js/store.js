@@ -65,14 +65,14 @@ async function createDeal(payload) {
     if (redirectToAdminLoginIfUnauthorized(res)) return null;
     const data = await res.json();
     if (!res.ok || !data.success) throw new Error(data.error || "Create failed");
-    return data.deal;
+    return { deal: data.deal, notified: data.notified || 0 };
   } catch (err) {
     console.warn("Backend unavailable, saving locally:", err.message);
     const deals = loadLocalDeals();
     const deal = { ...payload, id: makeDealId(deals) };
     deals.push(deal);
     saveDeals(deals);
-    return deal;
+    return { deal, notified: 0 };
   }
 }
 

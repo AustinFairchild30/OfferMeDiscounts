@@ -153,8 +153,9 @@ async function submitDealForm(e) {
     await updateDealRemote(editingId, payload);
     showToast("Deal updated");
   } else {
-    await createDeal(payload);
-    showToast("Deal added");
+    const result = await createDeal(payload);
+    const notified = result?.notified || 0;
+    showToast(notified > 0 ? `Deal added — texted ${notified} matching user${notified === 1 ? "" : "s"}` : "Deal added");
   }
 
   await refreshAll();
