@@ -412,6 +412,17 @@ function copyCode() {
   const code = document.getElementById("revealCode").textContent;
   navigator.clipboard?.writeText(code).catch(() => {});
   showToast(`Copied "${code}" to clipboard`);
+
+  // Best-effort signal that this code is actually about to get used, not
+  // just sent. Doesn't block the clipboard copy or the toast either way.
+  const phone = localStorage.getItem(STORAGE_KEY);
+  if (phone && pendingDealId) {
+    fetch("/api/track-copy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone, dealId: pendingDealId })
+    }).catch(() => {});
+  }
 }
 
 function showToast(msg) {

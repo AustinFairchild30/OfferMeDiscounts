@@ -10,7 +10,7 @@ const twilio = require("twilio");
 const { sendVerificationCode, checkVerificationCode, sendSms } = require("../lib/twilioClient");
 const { pickBestDeal, writeSmsCopy, parseInboundIntent } = require("../lib/claudeClient");
 const { readDeals, getDealById, addDeal, updateDeal, removeDeal, resetToSeed } = require("../lib/dealsStore");
-const { getUser, getAllUsers, upsertUser, logEngagement, markLastEngagementDisliked } = require("../lib/userStore");
+const { getUser, getAllUsers, upsertUser, logEngagement, markLastEngagementDisliked, markLastEngagementCopied } = require("../lib/userStore");
 const { COOKIE_NAME, SESSION_TTL_MS, createSessionToken, checkPassword, requireAdmin } = require("../lib/adminAuth");
 
 const router = express.Router();
@@ -193,6 +193,19 @@ router.post("/preferences", async (req, res) => {
     : [];
   await upsertUser(phone, { interests, favoriteBrands });
   res.json({ success: true });
+});
+
+// Fired when a user clicks "Copy code" on the reveal step — a real
+// intent-to-redeem signal, not just "we sent it." Best-effort: the
+// front end doesn't wait on this before copying to the clipboard.
+router.post("/track-copy", async (req, res) => {
+  const phone = toE164(req.body.phone);
+  const { dealId } = req.body;
+  if (!phone || !dealId) {
+    return res.status(400).json({ success: false, error: "Missing phone or dealId." });
+  }
+  const marked = await markLastEngagementCopied(phone, dealId);
+  res.json({ success: true, marked });
 });
 
 // Step 1: web visitor requests a code for a specific deal.

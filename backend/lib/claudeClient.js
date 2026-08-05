@@ -26,11 +26,13 @@ const COPY_MODEL = "claude-haiku-4-5-20251001";
 
 // Derives an implicit brand signal from a user's past engagement, ranked
 // rather than just deduped — a store they've engaged with 3 times this
-// week should outrank one they engaged with once two months ago, and a
-// deal they explicitly clicked "Get Code" on (a real buying-intent signal)
-// should count more than one we auto-picked for an inbound text (a guess).
-// Cross-references against the current deals list since engagement_events
-// only stores a deal_id.
+// week should outrank one they engaged with once two months ago, a deal
+// they explicitly clicked "Get Code" on (real buying intent) should count
+// more than one we auto-picked for an inbound text (a guess), and a code
+// they actually copied (about to use it at checkout) is the strongest
+// signal of all — unlike "sent" or even "explicitly chosen," it means
+// they got as far as intending to redeem it. Cross-references against the
+// current deals list since engagement_events only stores a deal_id.
 function engagedStores(user, deals) {
   const now = Date.now();
   const scores = {};
@@ -41,7 +43,8 @@ function engagedStores(user, deals) {
     const ageDays = (now - new Date(e.at).getTime()) / 86400000;
     const recencyWeight = Math.exp(-ageDays / 30); // ~30-day decay
     const explicitWeight = e.explicit ? 2 : 1;
-    scores[deal.store] = (scores[deal.store] || 0) + recencyWeight * explicitWeight;
+    const copiedWeight = e.copied ? 1.5 : 1;
+    scores[deal.store] = (scores[deal.store] || 0) + recencyWeight * explicitWeight * copiedWeight;
   });
   return Object.entries(scores)
     .sort((a, b) => b[1] - a[1])

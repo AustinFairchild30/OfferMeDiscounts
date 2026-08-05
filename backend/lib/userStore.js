@@ -19,6 +19,7 @@ function rowToUser(userRow, engagementRows) {
       via: e.via || undefined,
       disliked: !!e.disliked,
       explicit: !!e.explicit,
+      copied: !!e.copied,
       at: e.at
     }))
   };
@@ -99,4 +100,22 @@ async function markLastEngagementDisliked(phone) {
   return rows.length > 0;
 }
 
-module.exports = { getUser, getAllUsers, upsertUser, logEngagement, markLastEngagementDisliked };
+// Marks a specific deal's engagement row as copied — the user clicked
+// "Copy code" on the reveal step, the literal action right before actually
+// using it at checkout. A much stronger intent signal than "we sent it,"
+// and unlike a "shop now" link click, needs no real destination URL to
+// exist for the (currently placeholder/fictional) store. Matches on both
+// phone and dealId in case someone has re-unlocked the same deal before.
+async function markLastEngagementCopied(phone, dealId) {
+  const { rows } = await pool.query(
+    `UPDATE engagement_events SET copied = TRUE
+     WHERE id = (
+       SELECT id FROM engagement_events WHERE phone = $1 AND deal_id = $2 ORDER BY at DESC LIMIT 1
+     )
+     RETURNING id`,
+    [phone, dealId]
+  );
+  return rows.length > 0;
+}
+
+module.exports = { getUser, getAllUsers, upsertUser, logEngagement, markLastEngagementDisliked, markLastEngagementCopied };
