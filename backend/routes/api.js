@@ -19,6 +19,18 @@ const rateLimitedJson = (req, res) => {
   res.status(429).json({ success: false, error: "Too many requests. Please wait a bit and try again." });
 };
 
+// Render's requests to this app pass through Cloudflare in front of
+// Render's own proxy — two hops, not the one `trust proxy` accounts for.
+// Guessing a hop count left req.ip resolving inconsistently (verified live:
+// the same caller got a different "remaining" count on every request).
+// Cloudflare's CF-Connecting-IP header is its own authoritative, non-spoofable
+// record of the real client IP, so prefer it over hop-counting entirely.
+// Falls back to req.ip for local dev, where there's no Cloudflare in front.
+function clientIp(req) {
+  const cfIp = req.headers["cf-connecting-ip"];
+  return cfIp ? ipKeyGenerator(cfIp) : ipKeyGenerator(req.ip);
+}
+
 // Real Twilio Verify sends cost money per call, so /api/register is the
 // main abuse target: an attacker could either burn through your Twilio
 // balance by spamming many numbers, or harass one specific number with
@@ -28,6 +40,7 @@ const registerIpLimiter = rateLimit({
   max: 8,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: clientIp,
   handler: rateLimitedJson
 });
 const registerPhoneLimiter = rateLimit({
@@ -35,7 +48,7 @@ const registerPhoneLimiter = rateLimit({
   max: 3,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: req => toE164(req.body?.phone) || ipKeyGenerator(req.ip),
+  keyGenerator: req => toE164(req.body?.phone) || clientIp(req),
   handler: rateLimitedJson
 });
 
@@ -47,6 +60,7 @@ const confirmIpLimiter = rateLimit({
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: clientIp,
   handler: rateLimitedJson
 });
 
@@ -56,6 +70,7 @@ const adminLoginLimiter = rateLimit({
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: clientIp,
   handler: rateLimitedJson
 });
 
