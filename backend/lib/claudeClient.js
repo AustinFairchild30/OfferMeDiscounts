@@ -24,12 +24,35 @@ function getClient() {
 const MATCHING_MODEL = "claude-sonnet-5";
 const COPY_MODEL = "claude-haiku-4-5-20251001";
 
-// Derives an implicit brand signal from a user's past engagement — the
-// stores behind deals they've already unlocked — without needing any
-// extra input from them. Cross-references against the current deals
-// list since engagement_events only stores a deal_id.
+// Derives an implicit brand signal from a user's past engagement, ranked
+// rather than just deduped — a store they've engaged with 3 times this
+// week should outrank one they engaged with once two months ago, and a
+// deal they explicitly clicked "Get Code" on (a real buying-intent signal)
+// should count more than one we auto-picked for an inbound text (a guess).
+// Cross-references against the current deals list since engagement_events
+// only stores a deal_id.
 function engagedStores(user, deals) {
-  const dealIds = new Set((user?.engagement || []).map(e => e.dealId));
+  const now = Date.now();
+  const scores = {};
+  (user?.engagement || []).forEach(e => {
+    if (e.disliked) return; // negative signal is handled separately by dislikedStores
+    const deal = deals.find(d => d.id === e.dealId);
+    if (!deal) return;
+    const ageDays = (now - new Date(e.at).getTime()) / 86400000;
+    const recencyWeight = Math.exp(-ageDays / 30); // ~30-day decay
+    const explicitWeight = e.explicit ? 2 : 1;
+    scores[deal.store] = (scores[deal.store] || 0) + recencyWeight * explicitWeight;
+  });
+  return Object.entries(scores)
+    .sort((a, b) => b[1] - a[1])
+    .map(([store]) => store);
+}
+
+// Stores behind deals the user explicitly said they weren't interested in
+// (via an inbound "not interested" reply) — a real negative signal, unlike
+// engagedStores above which just means we sent them something before.
+function dislikedStores(user, deals) {
+  const dealIds = new Set((user?.engagement || []).filter(e => e.disliked).map(e => e.dealId));
   if (!dealIds.size) return [];
   return [...new Set(deals.filter(d => dealIds.has(d.id)).map(d => d.store))];
 }
@@ -41,8 +64,13 @@ async function pickBestDeal(deals, user) {
   const client = getClient();
   const interests = user?.interests?.length ? user.interests.join(", ") : "no declared interests yet";
   const favoriteBrands = user?.favoriteBrands?.length ? user.favoriteBrands.join(", ") : "none declared";
+  // pastStores is pre-ranked strongest-signal-first (weighted by recency,
+  // frequency, and whether the user explicitly picked the deal vs. us
+  // guessing), so the prompt below tells Claude the order is meaningful.
   const pastStores = engagedStores(user, deals);
   const engagementNote = pastStores.length ? pastStores.join(", ") : "no prior engagement yet";
+  const avoidStores = dislikedStores(user, deals);
+  const dislikedNote = avoidStores.length ? avoidStores.join(", ") : "none";
 
   const dealList = deals
     .map(d => `${d.id} | ${d.category} | ${d.store} | ${d.title} | expires ${d.expires}`)
@@ -53,17 +81,19 @@ async function pickBestDeal(deals, user) {
     max_tokens: 20,
     system:
       "You are a discount-matching agent for a coupon platform. Given a user's interests, their explicitly " +
-      "declared favorite brands/stores, the stores they've previously engaged with, and a list of candidate " +
-      "deals, respond with ONLY the id of the single best deal for that user. Prioritize an exact or close " +
-      "match on favorite brands/stores first, then category interests, then past engagement, then general " +
-      "appeal. No explanation, just the id (e.g. d004).",
+      "declared favorite brands/stores, the stores they've previously engaged with, stores they've said they're " +
+      "NOT interested in, and a list of candidate deals, respond with ONLY the id of the single best deal for " +
+      "that user. Prioritize an exact or close match on favorite brands/stores first, then category interests, " +
+      "then past engagement, then general appeal. Avoid picking a deal from a store the user said they're not " +
+      "interested in unless every other candidate is a worse match. No explanation, just the id (e.g. d004).",
     messages: [
       {
         role: "user",
         content:
           `User category interests: ${interests}\n` +
           `User declared favorite brands/stores: ${favoriteBrands}\n` +
-          `Stores user has engaged with before: ${engagementNote}\n\n` +
+          `Stores user has engaged with before, ranked strongest signal first: ${engagementNote}\n` +
+          `Stores user said they're NOT interested in (avoid unless no better option): ${dislikedNote}\n\n` +
           `Candidate deals:\n${dealList}\n\nBest deal id:`
       }
     ]
@@ -112,11 +142,14 @@ async function parseInboundIntent(messageBody) {
     max_tokens: 20,
     system:
       'Classify the incoming SMS into exactly one label: "start" (wants to join / get deals / says hi), ' +
-      '"stop" (wants to unsubscribe), or "other". Respond with only the label, lowercase, no punctuation.',
+      '"stop" (wants to unsubscribe from all texts), "not_interested" (says they don\'t like the specific ' +
+      'deal just sent to them — e.g. "not interested", "no thanks", "not for me" — but is NOT asking to ' +
+      'unsubscribe entirely), or "other". Respond with only the label, lowercase, no punctuation.',
     messages: [{ role: "user", content: messageBody }]
   });
 
   const label = (msg.content?.[0]?.text || "").trim().toLowerCase();
+  if (label.includes("not_interested") || label.includes("not interested")) return "not_interested";
   if (label.includes("stop")) return "stop";
   if (label.includes("start")) return "start";
   return "other";

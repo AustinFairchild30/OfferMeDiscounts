@@ -9,7 +9,7 @@ const twilio = require("twilio");
 const { sendVerificationCode, checkVerificationCode, sendSms } = require("../lib/twilioClient");
 const { pickBestDeal, writeSmsCopy, parseInboundIntent } = require("../lib/claudeClient");
 const { readDeals, getDealById, addDeal, updateDeal, removeDeal, resetToSeed } = require("../lib/dealsStore");
-const { getUser, upsertUser, logEngagement } = require("../lib/userStore");
+const { getUser, upsertUser, logEngagement, markLastEngagementDisliked } = require("../lib/userStore");
 const { COOKIE_NAME, SESSION_TTL_MS, createSessionToken, checkPassword, requireAdmin } = require("../lib/adminAuth");
 
 const router = express.Router();
@@ -125,7 +125,10 @@ router.post("/confirm", async (req, res) => {
     }
 
     const deals = await readDeals();
-    const deal = (await getDealById(dealId)) || (await pickBestDeal(deals, await getUser(phone)));
+    // A dealId means the user picked this specific deal on the site (a real
+    // buying-intent signal) rather than us guessing via pickBestDeal.
+    const requestedDeal = dealId ? await getDealById(dealId) : null;
+    const deal = requestedDeal || (await pickBestDeal(deals, await getUser(phone)));
 
     const existing = await getUser(phone);
     await upsertUser(phone, {
@@ -135,20 +138,24 @@ router.post("/confirm", async (req, res) => {
 
     const smsText = await writeSmsCopy(await getUser(phone), deal);
 
-    // Best-effort SMS send — if TWILIO_FROM_NUMBER isn't configured yet
-    // (e.g. still on a Verify-only trial setup), don't fail the whole
-    // request; the code still gets shown on-screen.
+    // Respect a prior STOP: never send the marketing text to an opted-out
+    // number, even if they've re-verified via the website. The code still
+    // shows on-screen either way — opting out of texts isn't a punishment.
     let smsSent = false;
-    try {
-      await sendSms(phone, smsText);
-      smsSent = true;
-    } catch (smsErr) {
-      console.warn("SMS send skipped/failed:", smsErr.message);
+    if (existing?.optedOut) {
+      console.log(`Skipping SMS to ${phone}: opted out.`);
+    } else {
+      try {
+        await sendSms(phone, smsText);
+        smsSent = true;
+      } catch (smsErr) {
+        console.warn("SMS send skipped/failed:", smsErr.message);
+      }
     }
 
-    await logEngagement(phone, { dealId: deal.id, category: deal.category, smsSent });
+    await logEngagement(phone, { dealId: deal.id, category: deal.category, smsSent, explicit: !!requestedDeal });
 
-    res.json({ success: true, code: deal.code, message: smsText, smsSent });
+    res.json({ success: true, code: deal.code, message: smsText, smsSent, optedOut: !!existing?.optedOut });
   } catch (err) {
     console.error("confirm error:", err.message);
     res.status(500).json({ success: false, error: err.message });
@@ -171,29 +178,53 @@ router.post("/sms-inbound", express.urlencoded({ extended: false }), async (req,
       if (approved) {
         const deals = await readDeals();
         const user = await getUser(from);
-        const sentIds = (user?.engagement || []).map(e => e.dealId);
-        const candidates = deals.filter(d => !sentIds.includes(d.id));
-        const deal = await pickBestDeal(candidates.length ? candidates : deals, user);
 
-        await upsertUser(from, {
-          verified: true,
-          registeredAt: user?.registeredAt || new Date().toISOString()
-        });
-        const smsText = await writeSmsCopy(await getUser(from), deal);
-        await logEngagement(from, { dealId: deal.id, category: deal.category, smsSent: true, via: "inbound" });
+        if (user?.optedOut) {
+          // Shouldn't normally reach here — the "start"/else branch below
+          // clears optedOut before a code is ever sent — but guard anyway
+          // in case someone replays an old code after opting out mid-flow.
+          twiml.message("You're opted out of texts from OfferMeDiscounts. Text START to opt back in first.");
+        } else {
+          const sentIds = (user?.engagement || []).map(e => e.dealId);
+          const candidates = deals.filter(d => !sentIds.includes(d.id));
+          const deal = await pickBestDeal(candidates.length ? candidates : deals, user);
 
-        twiml.message(smsText);
+          await upsertUser(from, {
+            verified: true,
+            registeredAt: user?.registeredAt || new Date().toISOString()
+          });
+          const smsText = await writeSmsCopy(await getUser(from), deal);
+          await logEngagement(from, { dealId: deal.id, category: deal.category, smsSent: true, via: "inbound" });
+
+          twiml.message(smsText);
+        }
       } else {
         twiml.message("That code didn't match. Text START to get a new one.");
       }
     } else {
       const intent = await parseInboundIntent(body);
       if (intent === "stop") {
+        // Persist the opt-out so nothing texts this number again — the
+        // web confirm flow and the inbound deal-send above both check it.
+        // The confirmation reply itself is still sent: CTIA/TCPA guidance
+        // requires acknowledging STOP, that's the one exception.
+        await upsertUser(from, { optedOut: true });
         twiml.message("You're unsubscribed from OfferMeDiscounts texts. Text START anytime to rejoin.");
+      } else if (intent === "not_interested") {
+        // A real negative signal (unlike engagement_events' default rows,
+        // which only mean "we sent this," not "they liked it") — attaches
+        // to whichever deal we most recently sent this phone.
+        const marked = await markLastEngagementDisliked(from);
+        twiml.message(
+          marked
+            ? "Got it — we'll steer away from deals like that. Text us anytime for a new one, or STOP to opt out entirely."
+            : "Thanks for the feedback! Text us anytime to get a deal."
+        );
       } else {
         // Treat "start" and anything unrecognized as the registration gate,
-        // matching the plan's "text number to begin" flow.
-        await upsertUser(from, {});
+        // matching the plan's "text number to begin" flow. Also clears any
+        // prior opt-out, since texting in at all is a fresh opt-in signal.
+        await upsertUser(from, { optedOut: false });
         await sendVerificationCode(from);
         twiml.message("Welcome to OfferMeDiscounts! Reply with the code we just texted you to unlock your first deal.");
       }

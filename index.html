@@ -4,14 +4,14 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>OfferMeDiscounts.com — Deals, Coupons &amp; Cashback</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8F%B7%EF%B8%8F%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='26' fill='%23ff5d73'/%3E%3Ctext x='50' y='70' font-size='54' font-family='Arial, sans-serif' font-weight='800' fill='%23241f30' text-anchor='middle'%3E%25%3C/text%3E%3C/svg%3E" />
 <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
 
 <header class="site-header">
   <div class="header-inner wrap">
-    <a href="index.html" class="logo">Offer<span class="tag">Me</span>Discounts</a>
+    <a href="index.html" class="logo"><span class="logo-mark">%</span>Offer<span class="tag">Me</span>Discounts</a>
     <form class="search-bar" onsubmit="handleSearch(event)">
       <input id="searchInput" type="text" placeholder="Search brands, stores, or categories&hellip;" />
       <button type="submit">Search</button>
@@ -95,13 +95,13 @@
         <label class="field-label" for="phoneInput">Text your number to unlock this code</label>
         <input class="text-input" id="phoneInput" type="tel" placeholder="(555) 123-4567" />
         <button class="primary-btn" id="sendCodeBtn" type="submit">Text Me the Code</button>
-        <div class="disclaimer">By continuing you agree to receive automated marketing texts from OfferMeDiscounts.com. Msg &amp; data rates may apply. Reply STOP to opt out. (Simulated in this prototype — no real SMS is sent.)</div>
+        <div class="disclaimer">By continuing you agree to receive automated marketing texts from OfferMeDiscounts.com. Msg &amp; data rates may apply. Reply STOP to opt out.</div>
       </form>
     </div>
 
     <!-- Step 2: OTP confirm -->
     <div class="step" id="stepOtp">
-      <div class="sms-hint">We texted a 4-digit code to <strong id="otpPhoneDisplay"></strong>. (Demo: enter any 4+ digits.)</div>
+      <div class="sms-hint">We texted a verification code to <strong id="otpPhoneDisplay"></strong>.</div>
       <form onsubmit="submitOtp(event)">
         <label class="field-label" for="otpInput">Enter confirmation code</label>
         <div class="otp-row">
@@ -115,7 +115,7 @@
     <div class="step" id="stepSurvey">
       <form onsubmit="submitSurvey(event)">
         <label class="field-label">What are you into?</label>
-        <p class="survey-intro">Pick a few categories and we'll personalize which deals we text you next.</p>
+        <p class="survey-intro">Tap a category to pick specific interests — the more specific, the better we can personalize which deals we text you next.</p>
         <div class="survey-grid" id="surveyCategories"></div>
         <label class="field-label" for="surveyBrandsInput" style="margin-top:16px;">Any favorite brands or stores? (optional)</label>
         <input class="text-input" id="surveyBrandsInput" type="text" placeholder="e.g. Nike, Target, SoundWave Audio" />
@@ -124,11 +124,12 @@
       <button type="button" class="skip-link" onclick="skipSurvey()">Skip for now</button>
     </div>
 
-    <!-- Step 3: code reveal -->
+    <!-- Step 3: code reveal, styled as a received text message -->
     <div class="step" id="stepReveal">
       <div class="code-reveal">
-        <div style="font-size:12px;color:var(--ink-soft);font-weight:700;text-transform:uppercase;">Your code</div>
+        <div class="code-label">Your code</div>
         <div class="code-text" id="revealCode"></div>
+        <div class="delivered"><span class="dot"></span>Delivered</div>
         <button class="copy-btn" onclick="copyCode()">Copy code</button>
       </div>
       <p style="font-size:13px;color:var(--ink-soft);" id="revealNote"></p>

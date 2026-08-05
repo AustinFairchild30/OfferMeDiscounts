@@ -21,11 +21,13 @@ CREATE TABLE IF NOT EXISTS users (
   registered_at   TIMESTAMPTZ,
   verified        BOOLEAN NOT NULL DEFAULT FALSE,
   interests       JSONB NOT NULL DEFAULT '[]'::jsonb,
-  favorite_brands JSONB NOT NULL DEFAULT '[]'::jsonb
+  favorite_brands JSONB NOT NULL DEFAULT '[]'::jsonb,
+  opted_out       BOOLEAN NOT NULL DEFAULT FALSE
 );
 
--- Safe to re-run: adds the column if this schema.sql ran before favorite_brands existed.
+-- Safe to re-run: adds the column(s) if this schema.sql ran before they existed.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS favorite_brands JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS opted_out BOOLEAN NOT NULL DEFAULT FALSE;
 
 CREATE TABLE IF NOT EXISTS engagement_events (
   id         SERIAL PRIMARY KEY,
@@ -34,7 +36,12 @@ CREATE TABLE IF NOT EXISTS engagement_events (
   category   TEXT,
   sms_sent   BOOLEAN,
   via        TEXT,
+  disliked   BOOLEAN NOT NULL DEFAULT FALSE,
+  explicit   BOOLEAN NOT NULL DEFAULT FALSE,
   at         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE engagement_events ADD COLUMN IF NOT EXISTS disliked BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE engagement_events ADD COLUMN IF NOT EXISTS explicit BOOLEAN NOT NULL DEFAULT FALSE;
 
 CREATE INDEX IF NOT EXISTS engagement_events_phone_idx ON engagement_events(phone);
