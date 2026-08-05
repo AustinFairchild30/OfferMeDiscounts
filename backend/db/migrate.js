@@ -33,7 +33,14 @@ async function run() {
     console.log(`Deals table already has ${rows[0].n} rows, skipping seed.`);
   }
 
-  if (fs.existsSync(USERS_PATH)) {
+  const { rows: userRows } = await pool.query("SELECT COUNT(*)::int AS n FROM users");
+  if (userRows[0].n === 0 && fs.existsSync(USERS_PATH)) {
+    // Only runs against a genuinely empty users table — this was a one-time
+    // cutover step from the old JSON-file store. Postgres has been the real
+    // system of record since, so re-running this on every migrate (e.g. for
+    // routine schema changes) would silently overwrite live interests/
+    // engagement history with this stale snapshot and duplicate every
+    // engagement row on each run. It already bit us once.
     const raw = fs.readFileSync(USERS_PATH, "utf8").trim();
     const users = raw ? JSON.parse(raw) : {};
     for (const [phone, u] of Object.entries(users)) {
@@ -52,6 +59,8 @@ async function run() {
       }
     }
     console.log(`Imported ${Object.keys(users).length} user(s) from users.json.`);
+  } else if (fs.existsSync(USERS_PATH)) {
+    console.log("Users table already has data, skipping users.json import.");
   }
 
   await pool.end();
