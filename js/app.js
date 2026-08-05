@@ -202,20 +202,33 @@ async function submitPhone(e) {
   };
 
   if (USE_REAL_BACKEND) {
+    let res;
     try {
-      const res = await fetch("/api/register", {
+      res = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone: val })
       });
-      const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.error || "Registration failed");
-      goToOtpStep();
+    } catch (networkErr) {
+      // Backend truly unreachable (e.g. server.js isn't running, or this
+      // page was opened as a plain file) — fall back to the demo mock below.
+      console.warn("Backend unavailable, falling back to demo mode:", networkErr.message);
+      setTimeout(goToOtpStep, 1100);
       return;
-    } catch (err) {
-      console.warn("Backend unavailable, falling back to demo mode:", err.message);
-      // fall through to mock below
     }
+
+    // Backend responded — trust its answer, real or a real rejection
+    // (e.g. a rate limit). Don't pretend a code was sent when it wasn't.
+    const data = await res.json();
+    btn.disabled = false;
+    btn.textContent = originalText;
+    if (!res.ok || !data.success) {
+      input.style.borderColor = "#d64545";
+      showToast(data.error || "Couldn't send a code. Try again in a bit.");
+      return;
+    }
+    goToOtpStep();
+    return;
   }
 
   // MOCK fallback — simulates the text-send delay with no real backend call.

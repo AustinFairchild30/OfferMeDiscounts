@@ -8,6 +8,12 @@ const { COOKIE_NAME, verifySessionToken } = require("./lib/adminAuth");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Render sits one reverse-proxy hop in front of this app. Without this,
+// Express sees every request as coming from that proxy's own address, so
+// the rate limiters in routes/api.js would treat all users as a single
+// shared IP instead of each visitor's real one.
+app.set("trust proxy", 1);
+
 app.use(express.json());
 app.use(cookieParser());
 

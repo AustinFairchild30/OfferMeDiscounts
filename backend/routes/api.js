@@ -5,6 +5,7 @@
 //      POST /api/sms-inbound (Twilio webhook)
 
 const express = require("express");
+const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
 const twilio = require("twilio");
 const { sendVerificationCode, checkVerificationCode, sendSms } = require("../lib/twilioClient");
 const { pickBestDeal, writeSmsCopy, parseInboundIntent } = require("../lib/claudeClient");
@@ -14,7 +15,51 @@ const { COOKIE_NAME, SESSION_TTL_MS, createSessionToken, checkPassword, requireA
 
 const router = express.Router();
 
-router.post("/admin/login", (req, res) => {
+const rateLimitedJson = (req, res) => {
+  res.status(429).json({ success: false, error: "Too many requests. Please wait a bit and try again." });
+};
+
+// Real Twilio Verify sends cost money per call, so /api/register is the
+// main abuse target: an attacker could either burn through your Twilio
+// balance by spamming many numbers, or harass one specific number with
+// repeated verification texts. Two independent limiters cover both.
+const registerIpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 8,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: rateLimitedJson
+});
+const registerPhoneLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: req => toE164(req.body?.phone) || ipKeyGenerator(req.ip),
+  handler: rateLimitedJson
+});
+
+// Defense-in-depth against OTP brute-forcing — Twilio Verify already
+// locks a verification after too many wrong attempts, but this also
+// keeps someone from just hammering our own endpoint.
+const confirmIpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: rateLimitedJson
+});
+
+// No lockout previously existed on admin password attempts.
+const adminLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: rateLimitedJson
+});
+
+router.post("/admin/login", adminLoginLimiter, (req, res) => {
   if (!checkPassword(req.body?.password)) {
     return res.status(401).json({ success: false, error: "Incorrect password." });
   }
@@ -94,7 +139,7 @@ router.post("/preferences", async (req, res) => {
 });
 
 // Step 1: web visitor requests a code for a specific deal.
-router.post("/register", async (req, res) => {
+router.post("/register", registerIpLimiter, registerPhoneLimiter, async (req, res) => {
   const phone = toE164(req.body.phone);
   if (!phone) {
     return res.status(400).json({ success: false, error: "Enter a valid 10-digit US phone number." });
@@ -111,7 +156,7 @@ router.post("/register", async (req, res) => {
 });
 
 // Step 2: web visitor submits the code they received, unlocking a deal.
-router.post("/confirm", async (req, res) => {
+router.post("/confirm", confirmIpLimiter, async (req, res) => {
   const phone = toE164(req.body.phone);
   const { code, dealId } = req.body;
   if (!phone || !code) {
