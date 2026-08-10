@@ -202,13 +202,16 @@ async function submitPhone(e) {
   };
 
   if (USE_REAL_BACKEND) {
-    const marketingConsent = document.getElementById("marketingConsentInput").checked;
+    // No consent decision is captured at this step anymore — the optional
+    // marketing ask now happens at the reveal step, after the user's
+    // actually gotten something, not before. New users default to opted
+    // out until they check that box (see handleRevealConsentToggle below).
     let res;
     try {
       res = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: val, marketingConsent })
+        body: JSON.stringify({ phone: val })
       });
     } catch (networkErr) {
       // Backend truly unreachable (e.g. server.js isn't running, or this
@@ -313,6 +316,9 @@ function populateRevealStep(revealData) {
   } else {
     preview.style.display = "none";
   }
+  // Reset so a previous unlock's choice doesn't silently carry over and
+  // look pre-checked on a new one — this element persists across unlocks.
+  document.getElementById("revealMarketingConsentInput").checked = false;
 }
 
 let pendingSurveyPhone = null;
@@ -406,6 +412,7 @@ function showRevealStep(deal, isFirstUnlock) {
     ? "You're registered! We'll text you future deals in categories you engage with (per the V2 personalization plan)."
     : "Welcome back — code unlocked instantly since you're already registered.";
   document.getElementById("revealSmsPreview").style.display = "none";
+  document.getElementById("revealMarketingConsentInput").checked = false;
   showStep("stepReveal");
 }
 
@@ -424,6 +431,20 @@ function copyCode() {
       body: JSON.stringify({ phone, dealId: pendingDealId })
     }).catch(() => {});
   }
+}
+
+// The optional marketing-texts checkbox lives on the reveal step now,
+// asked after the user's already gotten their code rather than before —
+// see the design discussion this was moved from stepPhone for. Fires as
+// soon as they check/uncheck it, not gated behind the "Done" button.
+function handleRevealConsentToggle(e) {
+  const phone = localStorage.getItem(STORAGE_KEY);
+  if (!phone) return;
+  fetch("/api/preferences", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phone, marketingConsent: e.target.checked })
+  }).catch(() => {});
 }
 
 function showToast(msg) {

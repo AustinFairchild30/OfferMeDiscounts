@@ -94,10 +94,6 @@
       <form onsubmit="submitPhone(event)">
         <label class="field-label" for="phoneInput">Text your number to unlock this code</label>
         <input class="text-input" id="phoneInput" type="tel" placeholder="(555) 123-4567" />
-        <label class="consent-check" for="marketingConsentInput">
-          <input type="checkbox" id="marketingConsentInput" />
-          <span>Also text me this deal and future personalized deals (optional). Msg &amp; data rates may apply. Reply STOP anytime to opt out.</span>
-        </label>
         <button class="primary-btn" id="sendCodeBtn" type="submit">Text Me the Code</button>
         <div class="disclaimer">We'll text a one-time verification code to confirm your number so you can view this discount code.</div>
       </form>
@@ -138,6 +134,10 @@
       </div>
       <p style="font-size:13px;color:var(--ink-soft);" id="revealNote"></p>
       <div class="sms-hint" id="revealSmsPreview" style="display:none;"></div>
+      <label class="consent-check" for="revealMarketingConsentInput">
+        <input type="checkbox" id="revealMarketingConsentInput" onchange="handleRevealConsentToggle(event)" />
+        <span>Text me more personalized deals like this (optional). Msg &amp; data rates may apply. Reply STOP anytime to opt out.</span>
+      </label>
       <button class="primary-btn" onclick="closeModal()">Done</button>
     </div>
   </div>

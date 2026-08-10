@@ -187,11 +187,22 @@ router.post("/preferences", async (req, res) => {
   if (!phone) {
     return res.status(400).json({ success: false, error: "Missing phone." });
   }
-  const interests = Array.isArray(req.body.interests) ? req.body.interests.filter(x => typeof x === "string") : [];
-  const favoriteBrands = Array.isArray(req.body.favoriteBrands)
-    ? req.body.favoriteBrands.filter(x => typeof x === "string" && x.trim()).map(x => x.trim())
-    : [];
-  await upsertUser(phone, { interests, favoriteBrands });
+  // This route now serves two different callers (the survey step, and the
+  // reveal-step consent checkbox), each sending a different subset of
+  // fields — so every field is independently optional and only touched
+  // when actually present, instead of defaulting absent ones to empty/
+  // false and silently wiping out what the other caller already saved.
+  const patch = {};
+  if (Array.isArray(req.body.interests)) {
+    patch.interests = req.body.interests.filter(x => typeof x === "string");
+  }
+  if (Array.isArray(req.body.favoriteBrands)) {
+    patch.favoriteBrands = req.body.favoriteBrands.filter(x => typeof x === "string" && x.trim()).map(x => x.trim());
+  }
+  if (typeof req.body.marketingConsent === "boolean") {
+    patch.optedOut = !req.body.marketingConsent;
+  }
+  await upsertUser(phone, patch);
   res.json({ success: true });
 });
 

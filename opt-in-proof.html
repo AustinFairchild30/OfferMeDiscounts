@@ -22,12 +22,13 @@
 <main class="wrap" style="max-width:760px; padding-top:32px; padding-bottom:48px;">
   <h1>SMS Opt-In Point</h1>
   <p style="color:var(--ink-soft);">
-    This page documents the exact opt-in step on OfferMeDiscounts.com for SMS compliance review.
-    On the live site (<a href="index.html">index.html</a>), this exact form appears in a modal
-    when a visitor clicks "Get Code" on any deal. It is reproduced here, unmodified, so the opt-in
+    This page documents the exact opt-in flow on OfferMeDiscounts.com for SMS compliance review.
+    On the live site (<a href="index.html">index.html</a>), this exact modal appears when a visitor
+    clicks "Get Code" on any deal. Both steps below are reproduced here, unmodified, so the opt-in
     point can be reviewed without needing to click through the site.
   </p>
 
+  <h2>Step 1 — phone entry (verification only, no marketing consent)</h2>
   <div class="modal" style="position:static; margin:24px 0; max-width:420px;">
     <div class="deal-emoji">🎧</div>
     <h2>30% Off Wireless Headphones</h2>
@@ -37,18 +38,31 @@
     <div class="step active">
       <label class="field-label" for="phoneInput">Text your number to unlock this code</label>
       <input class="text-input" id="phoneInput" type="tel" placeholder="(555) 123-4567" disabled />
-      <label class="consent-check" for="marketingConsentInput">
-        <input type="checkbox" id="marketingConsentInput" disabled />
-        <span>Also text me this deal and future personalized deals (optional). Msg &amp; data rates may apply. Reply STOP anytime to opt out.</span>
-      </label>
       <button class="primary-btn" type="button" disabled>Text Me the Code</button>
       <div class="disclaimer">We'll text a one-time verification code to confirm your number so you can view this discount code.</div>
     </div>
   </div>
 
+  <h2>Step 2 — code reveal (this is where marketing consent is asked)</h2>
+  <div class="modal" style="position:static; margin:24px 0; max-width:420px;">
+    <div class="code-reveal">
+      <div class="code-label">Your code</div>
+      <div class="code-text">WAVE30</div>
+      <div class="delivered"><span class="dot"></span>Delivered</div>
+      <button class="copy-btn" type="button" disabled>Copy code</button>
+    </div>
+    <p style="font-size:13px;color:var(--ink-soft);">Here's your code. Text START anytime if you'd like future deals sent to you.</p>
+    <label class="consent-check" for="marketingConsentInput">
+      <input type="checkbox" id="marketingConsentInput" disabled />
+      <span>Text me more personalized deals like this (optional). Msg &amp; data rates may apply. Reply STOP anytime to opt out.</span>
+    </label>
+    <button class="primary-btn" type="button" disabled>Done</button>
+  </div>
+
   <h2>Opt-in methods</h2>
   <ul>
-    <li><strong>Website form</strong> (shown above) — visitor enters their phone number and taps "Text Me the Code" on <a href="index.html">index.html</a>. Entering a phone number and tapping this button only triggers a one-time, transactional verification text confirming the number — it is not a marketing message and requires no separate consent. Recurring marketing texts (this deal plus future personalized deals) are a distinct, unchecked-by-default checkbox directly above the button; a visitor must actively check it to opt in, and can complete the entire unlock flow and receive their code without ever checking it.</li>
+    <li><strong>Website form</strong> (Step 1 above) — visitor enters their phone number and taps "Text Me the Code" on <a href="index.html">index.html</a>. This only triggers a one-time, transactional verification text confirming the number — it is not a marketing message and requires no separate consent. The visitor receives their code either way, whether or not they ever opt into marketing.</li>
+    <li><strong>Marketing opt-in</strong> (Step 2 above) — after the code is revealed, a distinct, unchecked-by-default checkbox lets the visitor opt in to recurring marketing texts (this deal plus future personalized deals). A visitor can complete the entire unlock flow and receive their code without ever checking it.</li>
     <li><strong>Keyword/text-in</strong> — a visitor may also text our number directly to begin; the first automated reply repeats the same consent and opt-out language before any marketing message is sent.</li>
   </ul>
 
