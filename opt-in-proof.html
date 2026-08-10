@@ -37,14 +37,18 @@
     <div class="step active">
       <label class="field-label" for="phoneInput">Text your number to unlock this code</label>
       <input class="text-input" id="phoneInput" type="tel" placeholder="(555) 123-4567" disabled />
+      <label class="consent-check" for="marketingConsentInput">
+        <input type="checkbox" id="marketingConsentInput" disabled />
+        <span>Also text me this deal and future personalized deals (optional). Msg &amp; data rates may apply. Reply STOP anytime to opt out.</span>
+      </label>
       <button class="primary-btn" type="button" disabled>Text Me the Code</button>
-      <div class="disclaimer">By continuing you agree to receive automated marketing texts from OfferMeDiscounts.com. Msg &amp; data rates may apply. Reply STOP to opt out. (Simulated in this prototype — no real SMS is sent.)</div>
+      <div class="disclaimer">We'll text a one-time verification code to confirm your number so you can view this discount code.</div>
     </div>
   </div>
 
   <h2>Opt-in methods</h2>
   <ul>
-    <li><strong>Website form</strong> (shown above) — visitor enters their phone number and taps "Text Me the Code" on <a href="index.html">index.html</a>, giving explicit consent per the disclaimer text shown directly beneath the button.</li>
+    <li><strong>Website form</strong> (shown above) — visitor enters their phone number and taps "Text Me the Code" on <a href="index.html">index.html</a>. Entering a phone number and tapping this button only triggers a one-time, transactional verification text confirming the number — it is not a marketing message and requires no separate consent. Recurring marketing texts (this deal plus future personalized deals) are a distinct, unchecked-by-default checkbox directly above the button; a visitor must actively check it to opt in, and can complete the entire unlock flow and receive their code without ever checking it.</li>
     <li><strong>Keyword/text-in</strong> — a visitor may also text our number directly to begin; the first automated reply repeats the same consent and opt-out language before any marketing message is sent.</li>
   </ul>
 
