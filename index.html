@@ -94,8 +94,12 @@
       <form onsubmit="submitPhone(event)">
         <label class="field-label" for="phoneInput">Text your number to unlock this code</label>
         <input class="text-input" id="phoneInput" type="tel" placeholder="(555) 123-4567" />
+        <label class="consent-check" for="marketingConsentInput">
+          <input type="checkbox" id="marketingConsentInput" />
+          <span>Also text me this deal and future personalized deals (optional). Msg &amp; data rates may apply. Reply STOP anytime to opt out.</span>
+        </label>
         <button class="primary-btn" id="sendCodeBtn" type="submit">Text Me the Code</button>
-        <div class="disclaimer">By continuing you agree to receive automated marketing texts from OfferMeDiscounts.com. Msg &amp; data rates may apply. Reply STOP to opt out.</div>
+        <div class="disclaimer">We'll text a one-time verification code to confirm your number so you can view this discount code.</div>
       </form>
     </div>
 

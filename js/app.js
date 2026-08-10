@@ -202,12 +202,13 @@ async function submitPhone(e) {
   };
 
   if (USE_REAL_BACKEND) {
+    const marketingConsent = document.getElementById("marketingConsentInput").checked;
     let res;
     try {
       res = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: val })
+        body: JSON.stringify({ phone: val, marketingConsent })
       });
     } catch (networkErr) {
       // Backend truly unreachable (e.g. server.js isn't running, or this
@@ -284,7 +285,7 @@ async function submitOtp(e) {
     if (data.smsSent) {
       note = "You're registered! We just texted you this deal — future deals will be personalized based on your preferences.";
     } else if (data.optedOut) {
-      note = "Here's your code. We didn't text it since you'd previously opted out — reply START to your last message from us if you'd like texts again.";
+      note = "Here's your code. We didn't text it since you're not opted in for texts — text START to our number anytime if you'd like future deals sent to you.";
     } else {
       note = "You're registered! (SMS send skipped — check your backend's Twilio config in .env.)";
     }

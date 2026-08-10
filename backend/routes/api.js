@@ -217,7 +217,17 @@ router.post("/register", registerIpLimiter, registerPhoneLimiter, async (req, re
 
   try {
     await sendVerificationCode(phone);
-    await upsertUser(phone, {}); // ensure a record exists even before verification completes
+    const existing = await getUser(phone);
+    if (existing) {
+      await upsertUser(phone, {}); // ensure a record exists (no-op for existing state)
+    } else {
+      // First time we've seen this number. Recurring marketing texts must be
+      // an active opt-in, not a default — Twilio rejection 30505 ("Agreeing
+      // to Receive Messages Must Be Optional") — so only mark them opted in
+      // if they checked the consent box. The OTP verification text itself
+      // isn't a marketing message and is sent either way.
+      await upsertUser(phone, { optedOut: !req.body.marketingConsent });
+    }
     res.json({ success: true });
   } catch (err) {
     console.error("register error:", err.message);
