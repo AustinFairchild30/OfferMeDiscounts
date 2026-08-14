@@ -57,11 +57,11 @@ function renderTable() {
     .map(
       d => `
     <tr>
-      <td>${d.emoji} ${d.title}${d.featured ? ' <span class="badge-pill">Featured</span>' : ""}</td>
+      <td>${d.emoji} ${d.title}${d.featured ? ' <span class="badge-pill">Featured</span>' : ""}${d.source === "cj" ? ' <span class="badge-pill">CJ</span>' : ""}</td>
       <td>${d.store}</td>
       <td><span class="badge-pill">${d.category}</span></td>
-      <td>${d.discount}</td>
-      <td><code>${d.code}</code></td>
+      <td>${d.discount || ""}</td>
+      <td>${d.code ? `<code>${d.code}</code>` : d.link ? `<a href="${d.link}" target="_blank" rel="noopener">link</a>` : "—"}</td>
       <td>${d.expires}</td>
       <td>
         <div class="row-actions">
@@ -102,7 +102,8 @@ function startEdit(id) {
   populateCategoryOptions();
   document.getElementById("fCategory").value = d.category;
   document.getElementById("fDiscount").value = d.discount;
-  document.getElementById("fCode").value = d.code;
+  document.getElementById("fCode").value = d.code || "";
+  document.getElementById("fLink").value = d.link || "";
   document.getElementById("fEmoji").value = d.emoji;
   document.getElementById("fExpires").value = d.expires;
   document.getElementById("fDescription").value = d.description;
@@ -137,15 +138,20 @@ async function submitDealForm(e) {
     store: document.getElementById("fStore").value.trim(),
     category,
     discount: document.getElementById("fDiscount").value.trim(),
-    code: document.getElementById("fCode").value.trim().toUpperCase(),
+    code: document.getElementById("fCode").value.trim().toUpperCase() || null,
+    link: document.getElementById("fLink").value.trim() || null,
     emoji: document.getElementById("fEmoji").value.trim() || "🏷️",
     expires: document.getElementById("fExpires").value,
     description: document.getElementById("fDescription").value.trim(),
     featured: document.getElementById("fFeatured").checked
   };
 
-  if (!payload.title || !payload.store || !payload.code || !payload.expires) {
-    alert("Title, store, code, and expiration date are required.");
+  if (!payload.title || !payload.store || !payload.expires) {
+    alert("Title, store, and expiration date are required.");
+    return;
+  }
+  if (!payload.code && !payload.link) {
+    alert("Enter a coupon code, a tracking link, or both.");
     return;
   }
 
@@ -160,6 +166,23 @@ async function submitDealForm(e) {
 
   await refreshAll();
   resetForm();
+}
+
+async function handleSyncCj(e) {
+  const btn = e?.target;
+  if (btn) btn.disabled = true;
+  try {
+    const res = await fetch("/api/deals/sync-cj", { method: "POST" });
+    if (redirectToAdminLoginIfUnauthorized(res)) return;
+    const data = await res.json();
+    if (!res.ok || !data.success) throw new Error(data.error || "Sync failed");
+    await refreshAll();
+    showToast(`Synced from CJ — ${data.created} new, ${data.updated} updated`);
+  } catch (err) {
+    alert(`CJ sync failed: ${err.message}`);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 async function handleResetData() {

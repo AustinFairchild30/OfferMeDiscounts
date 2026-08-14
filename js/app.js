@@ -292,7 +292,7 @@ async function submitOtp(e) {
     } else {
       note = "You're registered! (SMS send skipped — check your backend's Twilio config in .env.)";
     }
-    const revealData = { code: data.code, message: data.message, note };
+    const revealData = { code: data.code, link: data.link, message: data.message, note };
 
     if (isFirstRegistration) {
       showSurveyStep(phone, revealData);
@@ -306,8 +306,22 @@ async function submitOtp(e) {
   mockUnlock(phone, deal);
 }
 
+// Shared by every reveal path (registered, returning, mock) so a deal
+// with no coupon code (CJ link-only deals) doesn't show an empty code box.
+function applyRevealCodeAndLink(code, link) {
+  document.getElementById("revealCodeBox").style.display = code ? "block" : "none";
+  document.getElementById("revealCode").textContent = code || "";
+  const shopLink = document.getElementById("revealShopLink");
+  if (link) {
+    shopLink.style.display = "block";
+    shopLink.href = link;
+  } else {
+    shopLink.style.display = "none";
+  }
+}
+
 function populateRevealStep(revealData) {
-  document.getElementById("revealCode").textContent = revealData.code;
+  applyRevealCodeAndLink(revealData.code, revealData.link);
   document.getElementById("revealNote").textContent = revealData.note;
   const preview = document.getElementById("revealSmsPreview");
   if (revealData.message) {
@@ -407,7 +421,7 @@ function mockUnlock(phone, deal) {
 }
 
 function showRevealStep(deal, isFirstUnlock) {
-  document.getElementById("revealCode").textContent = deal.code;
+  applyRevealCodeAndLink(deal.code, deal.link);
   document.getElementById("revealNote").textContent = isFirstUnlock
     ? "You're registered! We'll text you future deals in categories you engage with (per the V2 personalization plan)."
     : "Welcome back — code unlocked instantly since you're already registered.";
@@ -423,6 +437,17 @@ function copyCode() {
 
   // Best-effort signal that this code is actually about to get used, not
   // just sent. Doesn't block the clipboard copy or the toast either way.
+  const phone = localStorage.getItem(STORAGE_KEY);
+  if (phone && pendingDealId) {
+    fetch("/api/track-copy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone, dealId: pendingDealId })
+    }).catch(() => {});
+  }
+}
+
+function trackShopClick() {
   const phone = localStorage.getItem(STORAGE_KEY);
   if (phone && pendingDealId) {
     fetch("/api/track-copy", {

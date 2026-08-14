@@ -126,12 +126,13 @@
 
     <!-- Step 3: code reveal, styled as a received text message -->
     <div class="step" id="stepReveal">
-      <div class="code-reveal">
+      <div class="code-reveal" id="revealCodeBox">
         <div class="code-label">Your code</div>
         <div class="code-text" id="revealCode"></div>
         <div class="delivered"><span class="dot"></span>Delivered</div>
         <button class="copy-btn" onclick="copyCode()">Copy code</button>
       </div>
+      <a class="primary-btn" id="revealShopLink" href="#" target="_blank" rel="noopener noreferrer sponsored" onclick="trackShopClick()" style="display:none;box-sizing:border-box;text-decoration:none;text-align:center;margin-bottom:12px;">Shop Now</a>
       <p style="font-size:13px;color:var(--ink-soft);" id="revealNote"></p>
       <div class="sms-hint" id="revealSmsPreview" style="display:none;"></div>
       <label class="consent-check" for="revealMarketingConsentInput">

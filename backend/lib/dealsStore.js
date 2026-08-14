@@ -4,7 +4,7 @@
 
 const pool = require("../db/pool");
 
-const COLUMNS = "id, title, brand, store, category, discount, code, description, expires, featured, emoji";
+const COLUMNS = "id, title, brand, store, category, discount, code, description, expires, featured, emoji, link, source";
 
 function rowToDeal(row) {
   return {
@@ -38,11 +38,11 @@ async function makeDealId() {
 async function addDeal(payload) {
   const id = await makeDealId();
   const { rows } = await pool.query(
-    `INSERT INTO deals (id, title, brand, store, category, discount, code, description, expires, featured, emoji)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+    `INSERT INTO deals (id, title, brand, store, category, discount, code, description, expires, featured, emoji, link)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
      RETURNING ${COLUMNS}`,
     [id, payload.title, payload.brand, payload.store, payload.category, payload.discount, payload.code,
-      payload.description, payload.expires, !!payload.featured, payload.emoji]
+      payload.description, payload.expires, !!payload.featured, payload.emoji, payload.link || null]
   );
   return rowToDeal(rows[0]);
 }
@@ -53,13 +53,44 @@ async function updateDeal(id, payload) {
   const merged = { ...existing, ...payload, id };
   const { rows } = await pool.query(
     `UPDATE deals SET title=$2, brand=$3, store=$4, category=$5, discount=$6, code=$7,
-       description=$8, expires=$9, featured=$10, emoji=$11
+       description=$8, expires=$9, featured=$10, emoji=$11, link=$12
      WHERE id=$1
      RETURNING ${COLUMNS}`,
     [id, merged.title, merged.brand, merged.store, merged.category, merged.discount, merged.code,
-      merged.description, merged.expires, !!merged.featured, merged.emoji]
+      merged.description, merged.expires, !!merged.featured, merged.emoji, merged.link || null]
   );
   return rowToDeal(rows[0]);
+}
+
+// Upserts deals pulled from CJ's Link Search API, keyed on cj_link_id so
+// re-syncing updates the same rows instead of duplicating them. Manually
+// added deals (source='manual') are never touched by this. emoji/featured
+// are admin-curated cosmetic fields, so they're only set on first insert
+// and left alone on subsequent syncs.
+async function upsertCjDeals(cjDeals) {
+  let created = 0;
+  let updated = 0;
+  for (const d of cjDeals) {
+    const { rows: existingRows } = await pool.query("SELECT id FROM deals WHERE cj_link_id = $1", [d.cjLinkId]);
+    if (existingRows[0]) {
+      await pool.query(
+        `UPDATE deals SET title=$2, brand=$3, store=$4, category=$5, discount=$6, code=$7,
+           description=$8, expires=$9, link=$10
+         WHERE cj_link_id=$1`,
+        [d.cjLinkId, d.title, d.brand, d.store, d.category, d.discount, d.code, d.description, d.expires, d.link]
+      );
+      updated++;
+    } else {
+      const id = await makeDealId();
+      await pool.query(
+        `INSERT INTO deals (id, title, brand, store, category, discount, code, description, expires, featured, emoji, link, source, cj_link_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,false,$10,$11,'cj',$12)`,
+        [id, d.title, d.brand, d.store, d.category, d.discount, d.code, d.description, d.expires, d.emoji, d.link, d.cjLinkId]
+      );
+      created++;
+    }
+  }
+  return { created, updated, total: cjDeals.length };
 }
 
 async function removeDeal(id) {
@@ -82,4 +113,4 @@ async function resetToSeed() {
   return readDeals();
 }
 
-module.exports = { readDeals, getDealById, addDeal, updateDeal, removeDeal, resetToSeed };
+module.exports = { readDeals, getDealById, addDeal, updateDeal, removeDeal, resetToSeed, upsertCjDeals };

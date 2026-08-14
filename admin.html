@@ -22,7 +22,10 @@
 <div class="wrap admin-shell">
   <div class="admin-topbar">
     <h1>Coupon &amp; deal management</h1>
-    <button class="icon-btn" onclick="handleResetData()">Reset to sample data</button>
+    <div style="display:flex;gap:8px;">
+      <button class="icon-btn" onclick="handleSyncCj(event)">Sync from CJ</button>
+      <button class="icon-btn" onclick="handleResetData()">Reset to sample data</button>
+    </div>
   </div>
 
   <div class="stat-cards">
@@ -62,8 +65,12 @@
       <input id="fDiscount" type="text" placeholder="30% OFF" required />
     </div>
     <div>
-      <label for="fCode">Coupon code</label>
-      <input id="fCode" type="text" placeholder="WAVE30" required />
+      <label for="fCode">Coupon code (optional if there's a link)</label>
+      <input id="fCode" type="text" placeholder="WAVE30" />
+    </div>
+    <div>
+      <label for="fLink">Affiliate tracking link (optional)</label>
+      <input id="fLink" type="url" placeholder="https://www.tkqlhce.com/click-..." />
     </div>
     <div>
       <label for="fEmoji">Icon (emoji)</label>

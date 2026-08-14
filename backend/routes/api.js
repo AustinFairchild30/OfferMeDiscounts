@@ -9,7 +9,8 @@ const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
 const twilio = require("twilio");
 const { sendVerificationCode, checkVerificationCode, sendSms } = require("../lib/twilioClient");
 const { pickBestDeal, writeSmsCopy, parseInboundIntent } = require("../lib/claudeClient");
-const { readDeals, getDealById, addDeal, updateDeal, removeDeal, resetToSeed } = require("../lib/dealsStore");
+const { readDeals, getDealById, addDeal, updateDeal, removeDeal, resetToSeed, upsertCjDeals } = require("../lib/dealsStore");
+const { fetchCjDeals } = require("../lib/cjClient");
 const { getUser, getAllUsers, upsertUser, logEngagement, markLastEngagementDisliked, markLastEngagementCopied } = require("../lib/userStore");
 const { COOKIE_NAME, SESSION_TTL_MS, createSessionToken, checkPassword, requireAdmin } = require("../lib/adminAuth");
 
@@ -150,8 +151,11 @@ async function notifyMatchingUsers(deal) {
 // Protected: requires a valid admin session (see /admin/login above).
 router.post("/deals", requireAdmin, async (req, res) => {
   const payload = req.body || {};
-  if (!payload.title || !payload.store || !payload.code || !payload.expires) {
-    return res.status(400).json({ success: false, error: "Title, store, code, and expiration date are required." });
+  if (!payload.title || !payload.store || !payload.expires) {
+    return res.status(400).json({ success: false, error: "Title, store, and expiration date are required." });
+  }
+  if (!payload.code && !payload.link) {
+    return res.status(400).json({ success: false, error: "A coupon code, a tracking link, or both are required." });
   }
   const deal = await addDeal(payload);
   const notified = await notifyMatchingUsers(deal);
@@ -173,6 +177,17 @@ router.delete("/deals/:id", requireAdmin, async (req, res) => {
 router.post("/deals/reset", requireAdmin, async (req, res) => {
   const deals = await resetToSeed();
   res.json({ success: true, deals });
+});
+
+router.post("/deals/sync-cj", requireAdmin, async (req, res) => {
+  try {
+    const cjDeals = await fetchCjDeals();
+    const result = await upsertCjDeals(cjDeals);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    console.error("CJ sync error:", err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 router.get("/health", (req, res) => {
@@ -291,7 +306,7 @@ router.post("/confirm", confirmIpLimiter, async (req, res) => {
 
     await logEngagement(phone, { dealId: deal.id, category: deal.category, smsSent, explicit: !!requestedDeal });
 
-    res.json({ success: true, code: deal.code, message: smsText, smsSent, optedOut: !!existing?.optedOut });
+    res.json({ success: true, code: deal.code, link: deal.link, message: smsText, smsSent, optedOut: !!existing?.optedOut });
   } catch (err) {
     console.error("confirm error:", err.message);
     res.status(500).json({ success: false, error: err.message });
@@ -337,6 +352,13 @@ router.post("/sms-inbound", express.urlencoded({ extended: false }), async (req,
       } else {
         twiml.message("That code didn't match. Text START to get a new one.");
       }
+    } else if (/^help$/i.test(body)) {
+      // Deterministic, not routed through the AI classifier — HELP is a
+      // CTIA-required keyword and shouldn't depend on model output.
+      twiml.message(
+        "OfferMeDiscounts: Text/data rates may apply. Reply STOP to unsubscribe. " +
+          "Support: fairchildaustin0@gmail.com"
+      );
     } else {
       const intent = await parseInboundIntent(body);
       if (intent === "stop") {
@@ -362,7 +384,10 @@ router.post("/sms-inbound", express.urlencoded({ extended: false }), async (req,
         // prior opt-out, since texting in at all is a fresh opt-in signal.
         await upsertUser(from, { optedOut: false });
         await sendVerificationCode(from);
-        twiml.message("Welcome to OfferMeDiscounts! Reply with the code we just texted you to unlock your first deal.");
+        twiml.message(
+          "OfferMeDiscounts: You're opted in! Reply with the code we just texted you to unlock your first deal. " +
+            "Msg & data rates may apply. Reply HELP for help, STOP to opt out."
+        );
       }
     }
   } catch (err) {

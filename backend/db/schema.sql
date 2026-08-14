@@ -9,12 +9,23 @@ CREATE TABLE IF NOT EXISTS deals (
   store       TEXT NOT NULL,
   category    TEXT NOT NULL,
   discount    TEXT,
-  code        TEXT NOT NULL,
+  code        TEXT,
   description TEXT,
   expires     DATE NOT NULL,
   featured    BOOLEAN NOT NULL DEFAULT FALSE,
-  emoji       TEXT
+  emoji       TEXT,
+  link        TEXT,
+  source      TEXT NOT NULL DEFAULT 'manual',
+  cj_link_id  TEXT
 );
+
+-- code used to be required (coupon-code redemption only); CJ-sourced deals
+-- are often a tracking link with no code, so it's optional now.
+ALTER TABLE deals ALTER COLUMN code DROP NOT NULL;
+ALTER TABLE deals ADD COLUMN IF NOT EXISTS link TEXT;
+ALTER TABLE deals ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'manual';
+ALTER TABLE deals ADD COLUMN IF NOT EXISTS cj_link_id TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS deals_cj_link_id_idx ON deals(cj_link_id) WHERE cj_link_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS users (
   phone           TEXT PRIMARY KEY,
