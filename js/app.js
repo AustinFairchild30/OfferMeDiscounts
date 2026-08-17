@@ -74,7 +74,7 @@ function dealCardHTML(d) {
     <div class="deal-card" data-id="${d.id}" onclick="openDealModal('${d.id}')">
       <div class="top-row">
         <div class="deal-emoji">${d.emoji}</div>
-        <div class="badge-discount">${d.discount}</div>
+        ${d.discount ? `<div class="badge-discount">${d.discount}</div>` : ""}
       </div>
       <h3>${d.title}</h3>
       <div class="deal-store">${d.store} &middot; ${d.category}</div>

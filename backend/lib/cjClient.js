@@ -40,19 +40,40 @@ function parseExpires(promotionEndDate) {
   return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
 }
 
+// CJ's promotion-type ("Sale/Discount", "Seasonal Link", "Product", ...) is
+// an internal category, not an actual discount amount — showing it as the
+// deal's discount badge looks specific but says nothing real. Pull an
+// actual figure out of the advertiser's own text when there is one, and
+// only fall back to a category label for "Free Shipping" (informative on
+// its own). Otherwise leave it blank rather than show a vague label.
+function deriveDiscount(promotionType, title, description) {
+  const text = `${description} ${title}`;
+
+  const percentMatch = text.match(/(\d{1,3})\s*%/);
+  if (percentMatch) return `${percentMatch[1]}% OFF`;
+
+  const dollarMatch = text.match(/\$(\d+(?:\.\d{2})?)\s*(?:off|discount)/i);
+  if (dollarMatch) return `$${dollarMatch[1]} OFF`;
+
+  if (promotionType === "Free Shipping") return "Free Shipping";
+
+  return null;
+}
+
 function mapLinkToDeal(link) {
   const store = link["advertiser-name"] || "";
   const description = link.description || link["ad-content"] || "";
   const couponCode = link["coupon-code"];
   const promotionType = link["promotion-type"];
+  const title = link["link-name"] || description || store;
 
   return {
     cjLinkId: String(link["link-id"]),
-    title: link["link-name"] || description || store,
+    title,
     brand: store,
     store,
     category: link.category || "Other",
-    discount: promotionType && promotionType !== "N/A" ? promotionType : null,
+    discount: deriveDiscount(promotionType, title, description),
     code: couponCode && couponCode.trim() ? couponCode.trim() : null,
     description,
     expires: parseExpires(link["promotion-end-date"]),
