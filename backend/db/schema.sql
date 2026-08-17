@@ -27,6 +27,13 @@ ALTER TABLE deals ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'manual'
 ALTER TABLE deals ADD COLUMN IF NOT EXISTS cj_link_id TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS deals_cj_link_id_idx ON deals(cj_link_id) WHERE cj_link_id IS NOT NULL;
 
+-- Deleting a CJ-sourced deal from the admin dashboard records its link-id
+-- here, so a later "Sync from CJ" doesn't silently re-add it.
+CREATE TABLE IF NOT EXISTS cj_excluded_links (
+  cj_link_id  TEXT PRIMARY KEY,
+  excluded_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS users (
   phone           TEXT PRIMARY KEY,
   registered_at   TIMESTAMPTZ,

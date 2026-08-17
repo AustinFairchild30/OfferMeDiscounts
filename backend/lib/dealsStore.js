@@ -68,9 +68,17 @@ async function updateDeal(id, payload) {
 // are admin-curated cosmetic fields, so they're only set on first insert
 // and left alone on subsequent syncs.
 async function upsertCjDeals(cjDeals) {
+  const { rows: excludedRows } = await pool.query("SELECT cj_link_id FROM cj_excluded_links");
+  const excluded = new Set(excludedRows.map(r => r.cj_link_id));
+
   let created = 0;
   let updated = 0;
+  let skipped = 0;
   for (const d of cjDeals) {
+    if (excluded.has(d.cjLinkId)) {
+      skipped++;
+      continue;
+    }
     const { rows: existingRows } = await pool.query("SELECT id FROM deals WHERE cj_link_id = $1", [d.cjLinkId]);
     if (existingRows[0]) {
       await pool.query(
@@ -90,10 +98,22 @@ async function upsertCjDeals(cjDeals) {
       created++;
     }
   }
-  return { created, updated, total: cjDeals.length };
+  return { created, updated, skipped, total: cjDeals.length };
 }
 
+// Deleting a CJ-sourced deal also excludes its link-id, so it doesn't come
+// back on the next sync — deleting is how an admin says "not a real deal"
+// or "don't want this one," and a resync shouldn't silently override that.
 async function removeDeal(id) {
+  const existing = await getDealById(id);
+  if (!existing) return false;
+  if (existing.source === "cj") {
+    const { rows } = await pool.query("SELECT cj_link_id FROM deals WHERE id = $1", [id]);
+    const cjLinkId = rows[0]?.cj_link_id;
+    if (cjLinkId) {
+      await pool.query("INSERT INTO cj_excluded_links (cj_link_id) VALUES ($1) ON CONFLICT DO NOTHING", [cjLinkId]);
+    }
+  }
   const { rowCount } = await pool.query("DELETE FROM deals WHERE id = $1", [id]);
   return rowCount > 0;
 }

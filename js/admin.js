@@ -177,7 +177,8 @@ async function handleSyncCj(e) {
     const data = await res.json();
     if (!res.ok || !data.success) throw new Error(data.error || "Sync failed");
     await refreshAll();
-    showToast(`Synced from CJ — ${data.created} new, ${data.updated} updated`);
+    const skippedNote = data.skipped ? `, ${data.skipped} skipped (excluded)` : "";
+    showToast(`Synced from CJ — ${data.created} new, ${data.updated} updated${skippedNote}`);
   } catch (err) {
     alert(`CJ sync failed: ${err.message}`);
   } finally {
