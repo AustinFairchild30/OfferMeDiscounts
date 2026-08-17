@@ -61,6 +61,34 @@ function mapLinkToDeal(link) {
   };
 }
 
+const RECORDS_PER_PAGE = 100;
+const MAX_PAGES = 50; // safety cap — 5,000 links; avoids a runaway loop if total-matched is ever wrong
+
+async function fetchAllCjLinks(token, websiteId) {
+  const parser = new XMLParser({ ignoreAttributes: false });
+  const allLinks = [];
+  let page = 1;
+  let totalMatched = Infinity;
+
+  while ((page - 1) * RECORDS_PER_PAGE < totalMatched && page <= MAX_PAGES) {
+    const url = `${LINK_SEARCH_URL}?website-id=${encodeURIComponent(websiteId)}&advertiser-ids=joined&records-per-page=${RECORDS_PER_PAGE}&page-number=${page}`;
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    const body = await res.text();
+    if (!res.ok) {
+      throw new Error(`CJ Link Search API returned ${res.status}: ${body.slice(0, 300)}`);
+    }
+
+    const linksNode = parser.parse(body)?.["cj-api"]?.links;
+    totalMatched = Number(linksNode?.["@_total-matched"] ?? 0);
+    let links = linksNode?.link || [];
+    if (!Array.isArray(links)) links = [links];
+    allLinks.push(...links);
+    page++;
+  }
+
+  return allLinks;
+}
+
 async function fetchCjDeals() {
   const token = process.env.CJ_PERSONAL_ACCESS_TOKEN;
   const websiteId = process.env.CJ_WEBSITE_ID;
@@ -68,23 +96,17 @@ async function fetchCjDeals() {
     throw new Error("CJ_PERSONAL_ACCESS_TOKEN and CJ_WEBSITE_ID must be set in .env to sync from CJ.");
   }
 
-  const url = `${LINK_SEARCH_URL}?website-id=${encodeURIComponent(websiteId)}&advertiser-ids=joined&records-per-page=100`;
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-  const body = await res.text();
-  if (!res.ok) {
-    throw new Error(`CJ Link Search API returned ${res.status}: ${body.slice(0, 300)}`);
-  }
-
-  const parser = new XMLParser();
-  const parsed = parser.parse(body);
-  let links = parsed?.["cj-api"]?.links?.link || [];
-  if (!Array.isArray(links)) links = [links];
+  // CJ only returns 100 links per page and joined advertisers can easily have
+  // 1,000+ links between them (mostly banners/product links, not deals) — has
+  // to page through everything or real promotions from other advertisers get
+  // silently missed once one advertiser's catalog is large.
+  const allLinks = await fetchAllCjLinks(token, websiteId);
 
   // CJ's Link Search returns every link an advertiser has registered — banners,
   // plain product pages, tracking sub-IDs, homepage links — not just discounts.
   // promotion-type is "N/A" (or blank) on all of those; only keep links the
   // advertiser actually tagged as a real promotion.
-  return links
+  return allLinks
     .filter(link => link && (link.clickUrl || link.clickURL) && link.destination)
     .filter(link => link["promotion-type"] && link["promotion-type"] !== "N/A")
     .map(mapLinkToDeal);
