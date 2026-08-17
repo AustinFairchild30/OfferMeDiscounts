@@ -186,14 +186,6 @@ async function handleSyncCj(e) {
   }
 }
 
-async function handleResetData() {
-  if (!confirm("Reset all deals back to the original sample data? Your edits will be lost.")) return;
-  await resetDealsRemote();
-  await refreshAll();
-  resetForm();
-  showToast("Reset to sample data");
-}
-
 function showToast(msg) {
   const toast = document.getElementById("toast");
   toast.textContent = msg;

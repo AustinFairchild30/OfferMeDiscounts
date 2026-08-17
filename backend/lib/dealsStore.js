@@ -118,19 +118,4 @@ async function removeDeal(id) {
   return rowCount > 0;
 }
 
-async function resetToSeed() {
-  const fs = require("fs");
-  const path = require("path");
-  const seed = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "data", "deals.seed.json"), "utf8"));
-  await pool.query("TRUNCATE deals");
-  for (const d of seed) {
-    await pool.query(
-      `INSERT INTO deals (id, title, brand, store, category, discount, code, description, expires, featured, emoji)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-      [d.id, d.title, d.brand, d.store, d.category, d.discount, d.code, d.description, d.expires, !!d.featured, d.emoji]
-    );
-  }
-  return readDeals();
-}
-
-module.exports = { readDeals, getDealById, addDeal, updateDeal, removeDeal, resetToSeed, upsertCjDeals };
+module.exports = { readDeals, getDealById, addDeal, updateDeal, removeDeal, upsertCjDeals };

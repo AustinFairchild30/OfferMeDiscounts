@@ -9,7 +9,7 @@ const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
 const twilio = require("twilio");
 const { sendVerificationCode, checkVerificationCode, sendSms } = require("../lib/twilioClient");
 const { pickBestDeal, writeSmsCopy, parseInboundIntent } = require("../lib/claudeClient");
-const { readDeals, getDealById, addDeal, updateDeal, removeDeal, resetToSeed, upsertCjDeals } = require("../lib/dealsStore");
+const { readDeals, getDealById, addDeal, updateDeal, removeDeal, upsertCjDeals } = require("../lib/dealsStore");
 const { fetchCjDeals } = require("../lib/cjClient");
 const { getUser, getAllUsers, upsertUser, logEngagement, markLastEngagementDisliked, markLastEngagementCopied } = require("../lib/userStore");
 const { COOKIE_NAME, SESSION_TTL_MS, createSessionToken, checkPassword, requireAdmin } = require("../lib/adminAuth");
@@ -172,11 +172,6 @@ router.delete("/deals/:id", requireAdmin, async (req, res) => {
   const removed = await removeDeal(req.params.id);
   if (!removed) return res.status(404).json({ success: false, error: "Deal not found." });
   res.json({ success: true });
-});
-
-router.post("/deals/reset", requireAdmin, async (req, res) => {
-  const deals = await resetToSeed();
-  res.json({ success: true, deals });
 });
 
 router.post("/deals/sync-cj", requireAdmin, async (req, res) => {

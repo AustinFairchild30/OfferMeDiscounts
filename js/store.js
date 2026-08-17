@@ -108,25 +108,6 @@ async function deleteDealRemote(id) {
   }
 }
 
-async function resetDealsRemote() {
-  try {
-    const res = await fetch(`${DEALS_API_BASE}/reset`, { method: "POST" });
-    if (redirectToAdminLoginIfUnauthorized(res)) return null;
-    const data = await res.json();
-    if (!res.ok || !data.success) throw new Error(data.error || "Reset failed");
-    localStorage.setItem(DEALS_STORE_KEY, JSON.stringify(data.deals));
-    return data.deals;
-  } catch (err) {
-    console.warn("Backend unavailable, resetting locally:", err.message);
-    return resetDeals();
-  }
-}
-
-function resetDeals() {
-  localStorage.setItem(DEALS_STORE_KEY, JSON.stringify(DEALS));
-  return DEALS.slice();
-}
-
 function getCategories(deals) {
   return [...new Set(deals.map(d => d.category))].sort();
 }
