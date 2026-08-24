@@ -60,12 +60,26 @@ function deriveDiscount(promotionType, title, description) {
   return null;
 }
 
+// Advertisers often name links "<Offer> | <Property> | <Advertiser Name>" —
+// the trailing advertiser-name segment just repeats what the card already
+// shows on the store line below the title, and the raw "|" reads as a
+// formatting glitch rather than a real separator.
+function cleanTitle(rawTitle, store) {
+  if (!rawTitle.includes("|")) return rawTitle;
+  const segments = rawTitle.split("|").map(s => s.trim()).filter(Boolean);
+  const storeLower = (store || "").trim().toLowerCase();
+  while (segments.length > 1 && segments[segments.length - 1].toLowerCase() === storeLower) {
+    segments.pop();
+  }
+  return segments.join(" – ") || rawTitle;
+}
+
 function mapLinkToDeal(link) {
   const store = link["advertiser-name"] || "";
   const description = link.description || link["ad-content"] || "";
   const couponCode = link["coupon-code"];
   const promotionType = link["promotion-type"];
-  const title = link["link-name"] || description || store;
+  const title = cleanTitle(link["link-name"] || description || store, store);
 
   return {
     cjLinkId: String(link["link-id"]),
