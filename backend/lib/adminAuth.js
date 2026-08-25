@@ -58,4 +58,29 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-module.exports = { COOKIE_NAME, SESSION_TTL_MS, createSessionToken, verifySessionToken, checkPassword, requireAdmin };
+// Separate from requireAdmin — a scheduled job (e.g. GitHub Actions) has no
+// browser session to hold a login cookie in, so it authenticates with a
+// static shared secret instead.
+function requireCronSecret(req, res, next) {
+  const expected = process.env.CRON_SECRET;
+  const provided = req.headers["x-cron-secret"];
+  if (!expected || !provided || typeof provided !== "string") {
+    return res.status(401).json({ success: false, error: "Not authenticated." });
+  }
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+    return res.status(401).json({ success: false, error: "Not authenticated." });
+  }
+  next();
+}
+
+module.exports = {
+  COOKIE_NAME,
+  SESSION_TTL_MS,
+  createSessionToken,
+  verifySessionToken,
+  checkPassword,
+  requireAdmin,
+  requireCronSecret
+};

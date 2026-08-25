@@ -12,7 +12,7 @@ const { pickBestDeal, writeSmsCopy, parseInboundIntent } = require("../lib/claud
 const { readDeals, getDealById, addDeal, updateDeal, removeDeal, upsertCjDeals } = require("../lib/dealsStore");
 const { fetchCjDeals } = require("../lib/cjClient");
 const { getUser, getAllUsers, upsertUser, logEngagement, markLastEngagementDisliked, markLastEngagementCopied } = require("../lib/userStore");
-const { COOKIE_NAME, SESSION_TTL_MS, createSessionToken, checkPassword, requireAdmin } = require("../lib/adminAuth");
+const { COOKIE_NAME, SESSION_TTL_MS, createSessionToken, checkPassword, requireAdmin, requireCronSecret } = require("../lib/adminAuth");
 
 const router = express.Router();
 
@@ -174,7 +174,7 @@ router.delete("/deals/:id", requireAdmin, async (req, res) => {
   res.json({ success: true });
 });
 
-router.post("/deals/sync-cj", requireAdmin, async (req, res) => {
+async function runCjSync(res) {
   try {
     const cjDeals = await fetchCjDeals();
     const result = await upsertCjDeals(cjDeals);
@@ -183,6 +183,16 @@ router.post("/deals/sync-cj", requireAdmin, async (req, res) => {
     console.error("CJ sync error:", err.message);
     res.status(500).json({ success: false, error: err.message });
   }
+}
+
+router.post("/deals/sync-cj", requireAdmin, async (req, res) => {
+  await runCjSync(res);
+});
+
+// Same sync, triggered by a scheduled job instead of the admin dashboard —
+// see .github/workflows/sync-cj.yml.
+router.post("/cron/sync-cj", requireCronSecret, async (req, res) => {
+  await runCjSync(res);
 });
 
 router.get("/health", (req, res) => {

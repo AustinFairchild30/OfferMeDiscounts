@@ -1,0 +1,29 @@
+name: Sync CJ deals
+
+on:
+  schedule:
+    # Runs once a day at 13:00 UTC (~9am ET). Adjust as needed —
+    # https://crontab.guru is helpful for changing the schedule.
+    - cron: "0 13 * * *"
+  workflow_dispatch: {} # lets you trigger a sync manually from the Actions tab
+
+env:
+  # Update this the day the custom domain goes live — everything else
+  # (secret, route, auth) stays the same.
+  SITE_URL: https://offermediscounts.onrender.com
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger CJ sync
+        run: |
+          response=$(curl -s -w "\n%{http_code}" -X POST "$SITE_URL/api/cron/sync-cj" \
+            -H "X-Cron-Secret: ${{ secrets.CRON_SECRET }}")
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+          echo "$body"
+          if [ "$http_code" -ne 200 ]; then
+            echo "Sync failed with HTTP $http_code"
+            exit 1
+          fi
