@@ -72,16 +72,16 @@ function filteredDeals() {
 // Real brand logos come from a free lookup-by-domain service — falls back
 // to the emoji if the advertiser isn't in that service's index (common for
 // smaller/niche brands) rather than showing a broken image icon.
-function dealLogoHTML(d) {
-  if (!d.logo_domain) return `<div class="deal-emoji">${d.emoji}</div>`;
-  return `<div class="deal-emoji"><img src="https://logos.hunter.io/${d.logo_domain}" alt="" loading="lazy" onerror="this.parentElement.innerHTML = '${d.emoji}';" /></div>`;
+function dealLogoInnerHTML(d) {
+  if (!d.logo_domain) return d.emoji;
+  return `<img src="https://logos.hunter.io/${d.logo_domain}" alt="" loading="lazy" onerror="this.parentElement.innerHTML = '${d.emoji}';" />`;
 }
 
 function dealCardHTML(d) {
   return `
     <div class="deal-card" data-id="${d.id}" onclick="openDealModal('${d.id}')">
       <div class="top-row">
-        ${dealLogoHTML(d)}
+        <div class="deal-emoji">${dealLogoInnerHTML(d)}</div>
         ${d.discount ? `<div class="badge-discount">${d.discount}</div>` : ""}
       </div>
       <h3>${d.title}</h3>
@@ -149,7 +149,7 @@ function openDealModal(dealId) {
   const deal = LIVE_DEALS.find(d => d.id === dealId);
   if (!deal) return;
 
-  document.getElementById("modalEmoji").textContent = deal.emoji;
+  document.getElementById("modalEmoji").innerHTML = dealLogoInnerHTML(deal);
   document.getElementById("modalTitle").textContent = deal.title;
   document.getElementById("modalStore").textContent = `${deal.store} · Expires ${formatDate(deal.expires)}`;
   document.getElementById("modalDesc").textContent = deal.description;
