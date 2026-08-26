@@ -74,6 +74,17 @@ function cleanTitle(rawTitle, store) {
   return segments.join(" – ") || rawTitle;
 }
 
+// Real brand logos come from a free lookup-by-domain service (Hunter.io's
+// Logo API), so all we need to store is the advertiser's own domain —
+// the actual image URL is built at render time on the frontend.
+function extractLogoDomain(destination) {
+  try {
+    return new URL(destination).hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
+
 function mapLinkToDeal(link) {
   const store = link["advertiser-name"] || "";
   const description = link.description || link["ad-content"] || "";
@@ -92,7 +103,8 @@ function mapLinkToDeal(link) {
     description,
     expires: parseExpires(link["promotion-end-date"]),
     link: link.clickUrl || link.clickURL,
-    emoji: CATEGORY_EMOJI[link.category] || "🏷️"
+    emoji: CATEGORY_EMOJI[link.category] || "🏷️",
+    logoDomain: extractLogoDomain(link.destination)
   };
 }
 

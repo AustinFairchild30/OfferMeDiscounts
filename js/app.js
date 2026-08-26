@@ -69,11 +69,19 @@ function filteredDeals() {
   });
 }
 
+// Real brand logos come from a free lookup-by-domain service — falls back
+// to the emoji if the advertiser isn't in that service's index (common for
+// smaller/niche brands) rather than showing a broken image icon.
+function dealLogoHTML(d) {
+  if (!d.logo_domain) return `<div class="deal-emoji">${d.emoji}</div>`;
+  return `<div class="deal-emoji"><img src="https://logos.hunter.io/${d.logo_domain}" alt="" loading="lazy" onerror="this.parentElement.innerHTML = '${d.emoji}';" /></div>`;
+}
+
 function dealCardHTML(d) {
   return `
     <div class="deal-card" data-id="${d.id}" onclick="openDealModal('${d.id}')">
       <div class="top-row">
-        <div class="deal-emoji">${d.emoji}</div>
+        ${dealLogoHTML(d)}
         ${d.discount ? `<div class="badge-discount">${d.discount}</div>` : ""}
       </div>
       <h3>${d.title}</h3>

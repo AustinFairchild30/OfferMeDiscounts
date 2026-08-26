@@ -104,6 +104,7 @@ function startEdit(id) {
   document.getElementById("fDiscount").value = d.discount;
   document.getElementById("fCode").value = d.code || "";
   document.getElementById("fLink").value = d.link || "";
+  document.getElementById("fLogoDomain").value = d.logo_domain || "";
   document.getElementById("fEmoji").value = d.emoji;
   document.getElementById("fExpires").value = d.expires;
   document.getElementById("fDescription").value = d.description;
@@ -140,6 +141,7 @@ async function submitDealForm(e) {
     discount: document.getElementById("fDiscount").value.trim(),
     code: document.getElementById("fCode").value.trim().toUpperCase() || null,
     link: document.getElementById("fLink").value.trim() || null,
+    logoDomain: document.getElementById("fLogoDomain").value.trim().replace(/^https?:\/\//, "").replace(/^www\./, "") || null,
     emoji: document.getElementById("fEmoji").value.trim() || "🏷️",
     expires: document.getElementById("fExpires").value,
     description: document.getElementById("fDescription").value.trim(),

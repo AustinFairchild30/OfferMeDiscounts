@@ -4,7 +4,7 @@
 
 const pool = require("../db/pool");
 
-const COLUMNS = "id, title, brand, store, category, discount, code, description, expires, featured, emoji, link, source";
+const COLUMNS = "id, title, brand, store, category, discount, code, description, expires, featured, emoji, link, source, logo_domain";
 
 function rowToDeal(row) {
   return {
@@ -38,11 +38,11 @@ async function makeDealId() {
 async function addDeal(payload) {
   const id = await makeDealId();
   const { rows } = await pool.query(
-    `INSERT INTO deals (id, title, brand, store, category, discount, code, description, expires, featured, emoji, link)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+    `INSERT INTO deals (id, title, brand, store, category, discount, code, description, expires, featured, emoji, link, logo_domain)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
      RETURNING ${COLUMNS}`,
     [id, payload.title, payload.brand, payload.store, payload.category, payload.discount, payload.code,
-      payload.description, payload.expires, !!payload.featured, payload.emoji, payload.link || null]
+      payload.description, payload.expires, !!payload.featured, payload.emoji, payload.link || null, payload.logoDomain || null]
   );
   return rowToDeal(rows[0]);
 }
@@ -53,11 +53,11 @@ async function updateDeal(id, payload) {
   const merged = { ...existing, ...payload, id };
   const { rows } = await pool.query(
     `UPDATE deals SET title=$2, brand=$3, store=$4, category=$5, discount=$6, code=$7,
-       description=$8, expires=$9, featured=$10, emoji=$11, link=$12
+       description=$8, expires=$9, featured=$10, emoji=$11, link=$12, logo_domain=$13
      WHERE id=$1
      RETURNING ${COLUMNS}`,
     [id, merged.title, merged.brand, merged.store, merged.category, merged.discount, merged.code,
-      merged.description, merged.expires, !!merged.featured, merged.emoji, merged.link || null]
+      merged.description, merged.expires, !!merged.featured, merged.emoji, merged.link || null, merged.logoDomain || merged.logo_domain || null]
   );
   return rowToDeal(rows[0]);
 }
@@ -83,17 +83,17 @@ async function upsertCjDeals(cjDeals) {
     if (existingRows[0]) {
       await pool.query(
         `UPDATE deals SET title=$2, brand=$3, store=$4, category=$5, discount=$6, code=$7,
-           description=$8, expires=$9, link=$10
+           description=$8, expires=$9, link=$10, logo_domain=$11
          WHERE cj_link_id=$1`,
-        [d.cjLinkId, d.title, d.brand, d.store, d.category, d.discount, d.code, d.description, d.expires, d.link]
+        [d.cjLinkId, d.title, d.brand, d.store, d.category, d.discount, d.code, d.description, d.expires, d.link, d.logoDomain]
       );
       updated++;
     } else {
       const id = await makeDealId();
       await pool.query(
-        `INSERT INTO deals (id, title, brand, store, category, discount, code, description, expires, featured, emoji, link, source, cj_link_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,false,$10,$11,'cj',$12)`,
-        [id, d.title, d.brand, d.store, d.category, d.discount, d.code, d.description, d.expires, d.emoji, d.link, d.cjLinkId]
+        `INSERT INTO deals (id, title, brand, store, category, discount, code, description, expires, featured, emoji, link, source, cj_link_id, logo_domain)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,false,$10,$11,'cj',$12,$13)`,
+        [id, d.title, d.brand, d.store, d.category, d.discount, d.code, d.description, d.expires, d.emoji, d.link, d.cjLinkId, d.logoDomain]
       );
       created++;
     }
