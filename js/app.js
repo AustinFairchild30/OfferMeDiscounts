@@ -71,10 +71,15 @@ function filteredDeals() {
 
 // Real brand logos come from a free lookup-by-domain service — falls back
 // to the emoji if the advertiser isn't in that service's index (common for
-// smaller/niche brands) rather than showing a broken image icon.
+// smaller/niche brands). The service returns a 20x16px generic placeholder
+// (HTTP 200, not a 404) rather than failing outright when it has no real
+// logo, so a plain onerror handler doesn't catch that case — checking the
+// loaded image's actual size does.
 function dealLogoInnerHTML(d) {
   if (!d.logo_domain) return d.emoji;
-  return `<img src="https://logos.hunter.io/${d.logo_domain}" alt="" loading="lazy" onerror="this.parentElement.innerHTML = '${d.emoji}';" />`;
+  return `<img src="https://logos.hunter.io/${d.logo_domain}" alt="" loading="lazy"
+    onerror="this.parentElement.innerHTML = '${d.emoji}';"
+    onload="if (this.naturalWidth < 32) this.parentElement.innerHTML = '${d.emoji}';" />`;
 }
 
 function dealCardHTML(d) {
