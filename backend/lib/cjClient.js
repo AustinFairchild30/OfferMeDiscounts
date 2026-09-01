@@ -60,6 +60,20 @@ function deriveDiscount(promotionType, title, description) {
   return null;
 }
 
+// Site is US-only for the foreseeable future. CJ's structured
+// `targeted-countries` field is unreliable (often blank even when the title
+// clearly says "Mexico only"), so this matches on the title/description
+// text instead. Excludes only on a clear non-US signal rather than
+// requiring an explicit "US" tag, since most links have no country marker
+// at all and are presumably fine as the default/US case.
+function isNonUsTargeted(text) {
+  if (/^ca[:.]?\s/i.test(text)) return true; // "CA: ..." — this advertiser's Canada prefix convention
+  if (/\b(mexico|canada|latam)\b/i.test(text)) return true;
+  if (/\bmx\b/i.test(text)) return true;
+  if (/\bfor\s+(mexico|latam|canada|uk|eu|australia)\s+only\b/i.test(text)) return true;
+  return false;
+}
+
 // Advertisers often name links "<Offer> | <Property> | <Advertiser Name>" —
 // the trailing advertiser-name segment just repeats what the card already
 // shows on the store line below the title, and the raw "|" reads as a
@@ -156,6 +170,7 @@ async function fetchCjDeals() {
   return allLinks
     .filter(link => link && (link.clickUrl || link.clickURL) && link.destination)
     .filter(link => link["promotion-type"] && link["promotion-type"] !== "N/A")
+    .filter(link => !isNonUsTargeted(link["link-name"] || link.description || ""))
     .map(mapLinkToDeal);
 }
 
