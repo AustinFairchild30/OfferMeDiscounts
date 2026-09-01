@@ -88,6 +88,41 @@ function cleanTitle(rawTitle, store) {
   return segments.join(" – ") || rawTitle;
 }
 
+// "Stylevana Affiliate Program" etc. — that's CJ's registered advertiser
+// name, not a consumer-facing brand name. Strip the business-relationship
+// suffix so the card just shows the actual brand.
+function cleanStoreName(store) {
+  return (store || "").replace(/\s*Affiliate\s*(Program)?\s*$/i, "").trim() || store;
+}
+
+// Now-redundant since every deal is US-only (see isNonUsTargeted) — was
+// only ever there to distinguish from the Mexico/Canada/LATAM variants
+// that get filtered out before this point.
+function stripUsPrefix(title) {
+  return title.replace(/^US(\s+only)?\s*[:.]\s*/i, "").trim();
+}
+
+// Some advertisers write the real coupon code straight into the title
+// ("...with Code SVBTSLC"). That defeats the whole point of the SMS gate —
+// a visitor could read the working code off the card without ever
+// verifying their number — so strip any mention of the deal's own code.
+function stripCodeMention(title, code) {
+  if (!code) return title;
+  const escaped = code.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const withCodeWord = new RegExp(`\\s*(?:with|use|using)?\\s*code[:\\s]+["']?${escaped}["']?`, "i");
+  let cleaned = title.replace(withCodeWord, "").trim();
+
+  // Fallback for phrasing that doesn't fit the "...code XXXX" shape (e.g.
+  // "CPT10 coupon code provides..." or the code leading the title outright).
+  // Prioritizes not leaking the code over a perfectly-worded title.
+  const bareCode = new RegExp(`\\b${escaped}\\b`, "i");
+  if (bareCode.test(cleaned)) {
+    cleaned = cleaned.replace(bareCode, "").replace(/\s{2,}/g, " ").trim();
+    cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+  }
+  return cleaned;
+}
+
 // Real brand logos come from a free lookup-by-domain service (Hunter.io's
 // Logo API), so all we need to store is the advertiser's own domain —
 // the actual image URL is built at render time on the frontend.
@@ -100,11 +135,15 @@ function extractLogoDomain(destination) {
 }
 
 function mapLinkToDeal(link) {
-  const store = link["advertiser-name"] || "";
+  const rawStore = link["advertiser-name"] || "";
+  const store = cleanStoreName(rawStore);
   const description = link.description || link["ad-content"] || "";
   const couponCode = link["coupon-code"];
+  const code = couponCode && couponCode.trim() ? couponCode.trim() : null;
   const promotionType = link["promotion-type"];
-  const title = cleanTitle(link["link-name"] || description || store, store);
+  let title = cleanTitle(link["link-name"] || description || rawStore, rawStore);
+  title = stripUsPrefix(title);
+  title = stripCodeMention(title, code);
 
   return {
     cjLinkId: String(link["link-id"]),
@@ -113,7 +152,7 @@ function mapLinkToDeal(link) {
     store,
     category: link.category || "Other",
     discount: deriveDiscount(promotionType, title, description),
-    code: couponCode && couponCode.trim() ? couponCode.trim() : null,
+    code,
     description,
     expires: parseExpires(link["promotion-end-date"]),
     link: link.clickUrl || link.clickURL,
