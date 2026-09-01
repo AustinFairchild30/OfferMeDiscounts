@@ -158,4 +158,48 @@ async function parseInboundIntent(messageBody) {
   return "other";
 }
 
-module.exports = { pickBestDeal, writeSmsCopy, parseInboundIntent };
+// Scores every deal for a known user, for reordering the public browse grid
+// toward what they'll actually want — unlike pickBestDeal, this doesn't call
+// Claude (an LLM call per page load for the whole catalog would be far too
+// slow/costly), just the same underlying signals: declared favorite
+// brands/stores (strongest), declared category interests, past engagement
+// (ranked via engagedStores), and a penalty for stores they've said they're
+// not interested in. Returns a plain {dealId: score} map; a deal with no
+// signal at all scores 0, not missing.
+function scoreDealsForUser(user, deals) {
+  const scores = {};
+  if (!user) {
+    deals.forEach(d => { scores[d.id] = 0; });
+    return scores;
+  }
+
+  const favorites = (user.favoriteBrands || []).map(b => b.toLowerCase().trim()).filter(Boolean);
+  const interests = new Set((user.interests || []).map(i => i.toLowerCase()));
+  const engaged = engagedStores(user, deals); // ranked strongest-signal-first
+  const disliked = new Set(dislikedStores(user, deals));
+  const engagedRank = {};
+  engaged.forEach((store, i) => { engagedRank[store] = engaged.length - i; });
+
+  for (const deal of deals) {
+    let score = 0;
+    const store = (deal.store || "").toLowerCase();
+    const brand = (deal.brand || "").toLowerCase();
+
+    if (favorites.some(f => store.includes(f) || f.includes(store) || (brand && (brand.includes(f) || f.includes(brand))))) {
+      score += 100;
+    }
+    if (interests.has((deal.category || "").toLowerCase())) {
+      score += 20;
+    }
+    if (engagedRank[deal.store]) {
+      score += engagedRank[deal.store];
+    }
+    if (disliked.has(deal.store)) {
+      score -= 50;
+    }
+    scores[deal.id] = score;
+  }
+  return scores;
+}
+
+module.exports = { pickBestDeal, writeSmsCopy, parseInboundIntent, scoreDealsForUser };

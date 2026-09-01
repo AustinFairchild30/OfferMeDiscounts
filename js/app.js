@@ -13,6 +13,10 @@ let searchTerm = "";
 let pendingDealId = null;
 let LIVE_DEALS = [];
 let LIVE_CATEGORIES = [];
+// {dealId: score} for a returning, verified visitor — populated after load,
+// so the grid renders immediately with the discovery shuffle and then
+// re-renders once personalization is known, rather than blocking on it.
+let PERSONALIZED_SCORES = {};
 
 // Fine-grained interest tags shown per category in the preference survey.
 // "Electronics" alone doesn't tell pickBestDeal whether someone wants
@@ -166,9 +170,22 @@ function interleaveByStore(deals) {
   return result;
 }
 
+// For a returning, verified visitor (see PERSONALIZED_SCORES below), puts
+// their best-matching deals first as a group, then everything else — each
+// group still internally shuffled/interleaved by store, so it's "your
+// matches first" layered on top of the discovery shuffle, not a full
+// replacement of it.
+function orderDeals(deals) {
+  if (!Object.keys(PERSONALIZED_SCORES).length) return interleaveByStore(deals);
+  const matched = shuffleInPlace(deals.filter(d => (PERSONALIZED_SCORES[d.id] || 0) > 0));
+  const rest = deals.filter(d => (PERSONALIZED_SCORES[d.id] || 0) <= 0);
+  matched.sort((a, b) => (PERSONALIZED_SCORES[b.id] || 0) - (PERSONALIZED_SCORES[a.id] || 0)); // stable — shuffle above breaks ties
+  return [...matched, ...interleaveByStore(rest)];
+}
+
 function renderDeals() {
   const grid = document.getElementById("dealGrid");
-  const deals = interleaveByStore(filteredDeals());
+  const deals = orderDeals(filteredDeals());
   document.getElementById("resultCount").textContent = `${deals.length} deal${deals.length === 1 ? "" : "s"}`;
   if (deals.length === 0) {
     grid.innerHTML = `<div class="empty-state">No deals match "${searchTerm}" ${activeCategory !== "All" ? "in " + activeCategory : ""}. Try another search or category.</div>`;
@@ -531,6 +548,25 @@ function showToast(msg) {
 
 /* ---------------- init ---------------- */
 
+async function loadPersonalizationIfRegistered() {
+  const phone = localStorage.getItem(STORAGE_KEY);
+  if (!phone) return;
+  try {
+    const res = await fetch("/api/deals/personalized-order", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone })
+    });
+    const data = await res.json();
+    if (data.success) {
+      PERSONALIZED_SCORES = data.scores;
+      renderDeals(); // re-render now that matches are known — grid already showed the discovery shuffle first
+    }
+  } catch (err) {
+    console.warn("Personalization unavailable, showing discovery order only:", err.message);
+  }
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   LIVE_DEALS = await loadDeals();
   LIVE_CATEGORIES = getCategories(LIVE_DEALS);
@@ -540,4 +576,5 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("dealCountStat").textContent = LIVE_DEALS.length;
   document.getElementById("storeCountStat").textContent = new Set(LIVE_DEALS.map(d => d.store)).size;
   document.getElementById("categoryCountStat").textContent = LIVE_CATEGORIES.length;
+  loadPersonalizationIfRegistered();
 });

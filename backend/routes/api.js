@@ -8,7 +8,7 @@ const express = require("express");
 const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
 const twilio = require("twilio");
 const { sendVerificationCode, checkVerificationCode, sendSms } = require("../lib/twilioClient");
-const { pickBestDeal, writeSmsCopy, parseInboundIntent } = require("../lib/claudeClient");
+const { pickBestDeal, writeSmsCopy, parseInboundIntent, scoreDealsForUser } = require("../lib/claudeClient");
 const { readDeals, getDealById, addDeal, updateDeal, removeDeal, upsertCjDeals } = require("../lib/dealsStore");
 const { fetchCjDeals } = require("../lib/cjClient");
 const { getUser, getAllUsers, upsertUser, logEngagement, markLastEngagementDisliked, markLastEngagementCopied } = require("../lib/userStore");
@@ -104,6 +104,19 @@ function toE164(raw) {
 
 router.get("/deals", async (req, res) => {
   res.json(await readDeals());
+});
+
+// Lets the browse grid put a returning, verified visitor's best-matching
+// deals first instead of a purely anonymous shuffle — phone in the POST
+// body (not a query string) per the same pattern as /api/preferences and
+// /api/track-copy. No rate limit: read-only, no SMS/OTP cost.
+router.post("/deals/personalized-order", async (req, res) => {
+  const phone = toE164(req.body.phone);
+  if (!phone) return res.status(400).json({ success: false, error: "Missing phone." });
+  const user = await getUser(phone);
+  const deals = await readDeals();
+  const scores = scoreDealsForUser(user, deals);
+  res.json({ success: true, scores });
 });
 
 // When a new deal matches something a user explicitly told us they like
