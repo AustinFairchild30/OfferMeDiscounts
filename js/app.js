@@ -129,9 +129,46 @@ function renderFeatured() {
     : `<div class="empty-state">No featured deals right now.</div>`;
 }
 
+function shuffleInPlace(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// Deals load in DB insertion order, which clusters every deal from one
+// advertiser's sync batch together (e.g. 8 Trident Hotels cards in a row) —
+// bad for discovery. Groups by store, shuffles within and across groups,
+// then round-robins one deal per store per pass so the same store can't
+// appear twice in a row unless it alone makes up more than half the list.
+function interleaveByStore(deals) {
+  const buckets = new Map();
+  for (const d of deals) {
+    if (!buckets.has(d.store)) buckets.set(d.store, []);
+    buckets.get(d.store).push(d);
+  }
+  const groups = Array.from(buckets.values());
+  groups.forEach(shuffleInPlace);
+  shuffleInPlace(groups);
+
+  const result = [];
+  let anyLeft = true;
+  while (anyLeft) {
+    anyLeft = false;
+    for (const group of groups) {
+      if (group.length) {
+        result.push(group.shift());
+        if (group.length) anyLeft = true;
+      }
+    }
+  }
+  return result;
+}
+
 function renderDeals() {
   const grid = document.getElementById("dealGrid");
-  const deals = filteredDeals();
+  const deals = interleaveByStore(filteredDeals());
   document.getElementById("resultCount").textContent = `${deals.length} deal${deals.length === 1 ? "" : "s"}`;
   if (deals.length === 0) {
     grid.innerHTML = `<div class="empty-state">No deals match "${searchTerm}" ${activeCategory !== "All" ? "in " + activeCategory : ""}. Try another search or category.</div>`;
