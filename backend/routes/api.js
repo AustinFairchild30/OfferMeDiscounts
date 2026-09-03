@@ -12,6 +12,7 @@ const { pickBestDeal, writeSmsCopy, parseInboundIntent, scoreDealsForUser } = re
 const { readDeals, getDealById, addDeal, updateDeal, removeDeal, upsertCjDeals } = require("../lib/dealsStore");
 const { fetchCjDeals } = require("../lib/cjClient");
 const { CATEGORY_TAGS } = require("../lib/categoryTags");
+const { checkAndPruneDeadLinks } = require("../lib/linkChecker");
 const { getUser, getAllUsers, upsertUser, logEngagement, markLastEngagementDisliked, markLastEngagementCopied } = require("../lib/userStore");
 const { COOKIE_NAME, SESSION_TTL_MS, createSessionToken, checkPassword, requireAdmin, requireCronSecret } = require("../lib/adminAuth");
 
@@ -210,10 +211,20 @@ router.post("/deals/sync-cj", requireAdmin, async (req, res) => {
   await runCjSync(res);
 });
 
-// Same sync, triggered by a scheduled job instead of the admin dashboard —
-// see .github/workflows/sync-cj.yml.
+// Same sync, plus a dead-link sweep, triggered by a scheduled job instead
+// of the admin dashboard — see .github/workflows/sync-cj.yml. The link
+// check can take a while (network round-trips to every merchant site), so
+// it only runs here, not on the admin button, which should stay snappy.
 router.post("/cron/sync-cj", requireCronSecret, async (req, res) => {
-  await runCjSync(res);
+  try {
+    const cjDeals = await fetchCjDeals();
+    const syncResult = await upsertCjDeals(cjDeals);
+    const linkCheckResult = await checkAndPruneDeadLinks();
+    res.json({ success: true, ...syncResult, linkCheck: linkCheckResult });
+  } catch (err) {
+    console.error("Cron sync error:", err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 router.get("/health", (req, res) => {

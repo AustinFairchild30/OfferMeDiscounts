@@ -17,7 +17,8 @@ CREATE TABLE IF NOT EXISTS deals (
   link        TEXT,
   source      TEXT NOT NULL DEFAULT 'manual',
   cj_link_id  TEXT,
-  logo_domain TEXT
+  logo_domain TEXT,
+  link_check_failures INTEGER NOT NULL DEFAULT 0
 );
 
 -- code used to be required (coupon-code redemption only); CJ-sourced deals
@@ -27,6 +28,7 @@ ALTER TABLE deals ADD COLUMN IF NOT EXISTS link TEXT;
 ALTER TABLE deals ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'manual';
 ALTER TABLE deals ADD COLUMN IF NOT EXISTS cj_link_id TEXT;
 ALTER TABLE deals ADD COLUMN IF NOT EXISTS logo_domain TEXT;
+ALTER TABLE deals ADD COLUMN IF NOT EXISTS link_check_failures INTEGER NOT NULL DEFAULT 0;
 CREATE UNIQUE INDEX IF NOT EXISTS deals_cj_link_id_idx ON deals(cj_link_id) WHERE cj_link_id IS NOT NULL;
 
 -- Deleting a CJ-sourced deal from the admin dashboard records its link-id
