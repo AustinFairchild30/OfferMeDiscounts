@@ -109,7 +109,7 @@ function stripUsPrefix(title) {
 function stripCodeMention(title, code) {
   if (!code) return title;
   const escaped = code.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const withCodeWord = new RegExp(`\\s*(?:with|use|using)?\\s*code[:\\s]+["']?${escaped}["']?`, "i");
+  const withCodeWord = new RegExp(`\\s*(?:with|use|using|enter|apply)?\\s*(?:coupon|promo)?\\s*code[:\\s]+["']?${escaped}["']?`, "i");
   let cleaned = title.replace(withCodeWord, "").trim();
 
   // Fallback for phrasing that doesn't fit the "...code XXXX" shape (e.g.
@@ -134,14 +134,34 @@ function extractLogoDomain(destination) {
   }
 }
 
+// Some advertisers occasionally leave stray markup in their description
+// text (CJ's own feed, not us rendering anything) — e.g. a real Herbspro
+// entry whose description was literally "<link>Special Affiliate
+// Offer</link>". Strip it before this text is ever shown to a visitor.
+function stripHtmlTags(text) {
+  return (text || "").replace(/<\/?[^>]+>/g, "").trim();
+}
+
+// CJ's link-name is sometimes just the bare advertiser name ("Herbspro.com")
+// even when the description has the actual offer ("Get 40% off all your
+// orders..."). A link-name that's just a repeat of the store name is worse
+// than useless as a title — it looks like a broken/placeholder card — so
+// treat that the same as it being blank and fall back to the description.
+function pickBestTitle(linkName, description, store) {
+  const nameTrimmed = (linkName || "").trim();
+  const isRedundant = !nameTrimmed || nameTrimmed.toLowerCase() === (store || "").trim().toLowerCase();
+  if (!isRedundant) return nameTrimmed;
+  return description || store;
+}
+
 function mapLinkToDeal(link) {
   const rawStore = link["advertiser-name"] || "";
   const store = cleanStoreName(rawStore);
-  const description = link.description || link["ad-content"] || "";
+  const description = stripHtmlTags(link.description || link["ad-content"] || "");
   const couponCode = link["coupon-code"];
   const code = couponCode && couponCode.trim() ? couponCode.trim() : null;
   const promotionType = link["promotion-type"];
-  let title = cleanTitle(link["link-name"] || description || rawStore, rawStore);
+  let title = cleanTitle(pickBestTitle(link["link-name"], description, rawStore), rawStore);
   title = stripUsPrefix(title);
   title = stripCodeMention(title, code);
 

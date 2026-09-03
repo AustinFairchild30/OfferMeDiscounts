@@ -58,8 +58,18 @@ function isRegistered() {
   return !!localStorage.getItem(STORAGE_KEY);
 }
 
+// Cards now show just brand + discount badge, no descriptive title — a
+// badge-less deal (real code, but no extractable %/$) would render
+// identically to every other badge-less deal from the same store, with
+// nothing to tell them apart. Rather than bring the messy title text back,
+// those stay in the database (still usable for personalization/matching)
+// but don't show up in the browsable grid at all.
+function displayableDeals() {
+  return LIVE_DEALS.filter(d => d.discount);
+}
+
 function filteredDeals() {
-  return LIVE_DEALS.filter(d => {
+  return displayableDeals().filter(d => {
     const matchesCategory = activeCategory === "All" || d.category === activeCategory;
     const term = searchTerm.trim().toLowerCase();
     const matchesSearch =
@@ -92,8 +102,8 @@ function dealCardHTML(d) {
         <div class="deal-emoji">${dealLogoInnerHTML(d)}</div>
         ${d.discount ? `<div class="badge-discount">${d.discount}</div>` : ""}
       </div>
-      <h3>${d.title}</h3>
-      <div class="deal-store">${d.store} &middot; ${d.category}</div>
+      <h3>${d.store}</h3>
+      <div class="deal-store">${d.category}</div>
       <div class="card-footer">
         <span>Expires ${formatDate(d.expires)}</span>
         <button class="get-code-btn" onclick="event.stopPropagation(); openDealModal('${d.id}')">Get Code</button>
@@ -126,7 +136,7 @@ function setCategory(cat) {
 
 function renderFeatured() {
   const wrap = document.getElementById("featuredGrid");
-  const featured = LIVE_DEALS.filter(d => d.featured);
+  const featured = displayableDeals().filter(d => d.featured);
   wrap.innerHTML = featured.length
     ? featured.map(dealCardHTML).join("")
     : `<div class="empty-state">No featured deals right now.</div>`;
@@ -569,12 +579,12 @@ async function loadPersonalizationIfRegistered() {
 document.addEventListener("DOMContentLoaded", async () => {
   loadSurveyTags(); // not needed until first registration's survey step — don't block the grid on it
   LIVE_DEALS = await loadDeals();
-  LIVE_CATEGORIES = getCategories(LIVE_DEALS);
+  LIVE_CATEGORIES = getCategories(displayableDeals());
   renderCategoryBar();
   renderFeatured();
   renderDeals();
-  document.getElementById("dealCountStat").textContent = LIVE_DEALS.length;
-  document.getElementById("storeCountStat").textContent = new Set(LIVE_DEALS.map(d => d.store)).size;
+  document.getElementById("dealCountStat").textContent = displayableDeals().length;
+  document.getElementById("storeCountStat").textContent = new Set(displayableDeals().map(d => d.store)).size;
   document.getElementById("categoryCountStat").textContent = LIVE_CATEGORIES.length;
   loadPersonalizationIfRegistered();
 });
