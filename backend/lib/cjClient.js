@@ -210,7 +210,13 @@ async function fetchCjDeals() {
     .filter(link => link && (link.clickUrl || link.clickURL) && link.destination)
     .filter(link => link["promotion-type"] && link["promotion-type"] !== "N/A")
     .filter(link => !isNonUsTargeted(link["link-name"] || link.description || ""))
-    .map(mapLinkToDeal);
+    .map(mapLinkToDeal)
+    // A promotion-type tag alone isn't enough — some advertisers (Marmot:
+    // 23 of its 28 links) tag plain category/collection pages ("Shop Men's
+    // Rain Jackets", "New Minimalist Collection") as promotional even
+    // though there's no actual discount or code attached. Without either,
+    // it's just a product link, not a deal.
+    .filter(d => d.discount || d.code);
 }
 
 module.exports = { fetchCjDeals };
