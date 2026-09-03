@@ -11,6 +11,7 @@ const { sendVerificationCode, checkVerificationCode, sendSms } = require("../lib
 const { pickBestDeal, writeSmsCopy, parseInboundIntent, scoreDealsForUser } = require("../lib/claudeClient");
 const { readDeals, getDealById, addDeal, updateDeal, removeDeal, upsertCjDeals } = require("../lib/dealsStore");
 const { fetchCjDeals } = require("../lib/cjClient");
+const { CATEGORY_TAGS } = require("../lib/categoryTags");
 const { getUser, getAllUsers, upsertUser, logEngagement, markLastEngagementDisliked, markLastEngagementCopied } = require("../lib/userStore");
 const { COOKIE_NAME, SESSION_TTL_MS, createSessionToken, checkPassword, requireAdmin, requireCronSecret } = require("../lib/adminAuth");
 
@@ -104,6 +105,13 @@ function toE164(raw) {
 
 router.get("/deals", async (req, res) => {
   res.json(await readDeals());
+});
+
+// Source of truth for the preference survey's fine-grained sub-tags per
+// category — see backend/lib/categoryTags.js for why this is shared with
+// the personalized-scoring match logic instead of a separate client copy.
+router.get("/category-tags", (req, res) => {
+  res.json(CATEGORY_TAGS);
 });
 
 // Lets the browse grid put a returning, verified visitor's best-matching

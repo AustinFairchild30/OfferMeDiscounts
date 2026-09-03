@@ -10,6 +10,7 @@
 // you deploy this for real.
 
 const Anthropic = require("@anthropic-ai/sdk");
+const { categoryMatchesInterests } = require("./categoryTags");
 
 function getClient() {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -188,7 +189,7 @@ function scoreDealsForUser(user, deals) {
     if (favorites.some(f => store.includes(f) || f.includes(store) || (brand && (brand.includes(f) || f.includes(brand))))) {
       score += 100;
     }
-    if (interests.has((deal.category || "").toLowerCase())) {
+    if (categoryMatchesInterests(deal.category, interests)) {
       score += 20;
     }
     if (engagedRank[deal.store]) {

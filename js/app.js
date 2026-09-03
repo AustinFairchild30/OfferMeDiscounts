@@ -24,20 +24,19 @@ let PERSONALIZED_SCORES = {};
 // instead — they're sent to Claude as free text, same as before, so no
 // backend change was needed. Any category not listed here (e.g. a new one
 // an admin adds later) just falls back to showing itself as a single chip.
-const SURVEY_TAGS = {
-  "Automotive": ["Oil Changes & Maintenance", "Car Detailing", "Dash Cams & Car Electronics"],
-  "Baby & Kids": ["Baby Gear & Strollers", "Kids Books & Toys"],
-  "Beauty & Personal Care": ["Skincare", "Haircare", "Fragrance", "Dental & Oral Care"],
-  "Books & Media": ["Books", "Audiobooks", "Board Games"],
-  "Electronics": ["Audio & Headphones", "Computers & Laptops", "Smart Home", "Gaming Gear"],
-  "Entertainment & Streaming": ["Streaming Services", "Concerts & Events", "Movies"],
-  "Fashion & Apparel": ["Clothing", "Shoes"],
-  "Fitness & Outdoors": ["Yoga & Studio Gear", "Running & Athletic Wear", "Camping & Outdoor Gear", "Fitness Equipment"],
-  "Food & Dining": ["Meal Kits & Groceries", "Restaurants & Dining Out", "Coffee & Beverages"],
-  "Home & Garden": ["Furniture & Outdoor", "Smart Home & Appliances", "Bedding & Bath", "Kitchen"],
-  "Pets": ["Dog Supplies", "Cat Supplies", "Pet Grooming", "Aquarium & Other Pets"],
-  "Travel": ["Flights", "Hotels", "Rental Cars", "Cruises"]
-};
+// Fetched from GET /api/category-tags on load (see backend/lib/categoryTags.js
+// for why this lives server-side — it's also used to match a declared
+// sub-tag interest back to its parent category for personalized ordering).
+let SURVEY_TAGS = {};
+
+async function loadSurveyTags() {
+  try {
+    const res = await fetch("/api/category-tags");
+    SURVEY_TAGS = await res.json();
+  } catch (err) {
+    console.warn("Could not load survey tags, falling back to plain categories:", err.message);
+  }
+}
 
 function getUnlockedDeals() {
   try {
@@ -568,6 +567,7 @@ async function loadPersonalizationIfRegistered() {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
+  loadSurveyTags(); // not needed until first registration's survey step — don't block the grid on it
   LIVE_DEALS = await loadDeals();
   LIVE_CATEGORIES = getCategories(LIVE_DEALS);
   renderCategoryBar();
