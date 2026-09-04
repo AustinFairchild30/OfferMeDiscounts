@@ -135,9 +135,32 @@ function setCategory(cat) {
   renderDeals();
 }
 
+function discountValue(discount) {
+  const match = (discount || "").match(/(\d+(?:\.\d+)?)/);
+  return match ? parseFloat(match[1]) : 0;
+}
+
 function renderFeatured() {
   const wrap = document.getElementById("featuredGrid");
-  const featured = displayableDeals().filter(d => d.featured);
+  const pool = displayableDeals();
+  let featured = pool.filter(d => d.featured);
+  // No CJ-synced deal is ever admin-curated as "featured" (they always
+  // come in as featured=false), so without this fallback this section
+  // would show "No featured deals right now" permanently. Auto-feature
+  // the strongest current offers by discount size instead.
+  if (!featured.length) {
+    // Best-per-store first, so a cluster of duplicate/near-identical deals
+    // from one advertiser (a real, recurring pattern in synced data) can't
+    // fill every featured slot with the same brand.
+    const bestPerStore = new Map();
+    pool.forEach(d => {
+      const current = bestPerStore.get(d.store);
+      if (!current || discountValue(d.discount) > discountValue(current.discount)) bestPerStore.set(d.store, d);
+    });
+    featured = Array.from(bestPerStore.values())
+      .sort((a, b) => discountValue(b.discount) - discountValue(a.discount))
+      .slice(0, 4);
+  }
   wrap.innerHTML = featured.length
     ? featured.map(dealCardHTML).join("")
     : `<div class="empty-state">No featured deals right now.</div>`;
