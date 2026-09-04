@@ -38,6 +38,79 @@ async function loadSurveyTags() {
   }
 }
 
+/* ---------------- Taste quiz (anonymous, no sign-up) ---------------- */
+
+// A mix of real current advertisers (brand logo, tag = exact store name so
+// it feeds favoriteBrands matching directly) and generic representative
+// style photos for categories we don't have specific real product images
+// for (tag = category name, feeds interests matching via categoryTags.js's
+// matching on the server). No backend/CJ data needed for either kind.
+const TASTE_CARDS = [
+  { type: "brand", label: "Marmot", logoDomain: "marmot.com", tag: "Marmot" },
+  { type: "brand", label: "Stylevana", logoDomain: "stylevana.com", tag: "Stylevana" },
+  { type: "brand", label: "Peet's Coffee", logoDomain: "peets.com", tag: "Peet's Coffee" },
+  { type: "brand", label: "SoccerGarage", logoDomain: "soccergarage.com", tag: "SoccerGarage.com" },
+  { type: "brand", label: "AndaSeat", logoDomain: "andaseat.com", tag: "AndaSeat" },
+  { type: "brand", label: "Pine Meadow Golf", logoDomain: "pinemeadowgolf.com", tag: "pinemeadowgolf.com" },
+  { type: "style", label: "Casual Tees", image: "photo-1618453292459-53424b66bb6a", tag: "Apparel" },
+  { type: "style", label: "Denim", image: "photo-1598554747436-c9293d6a588f", tag: "Apparel" },
+  { type: "style", label: "Sunglasses", image: "photo-1511499767150-a48a237f0083", tag: "Womens" },
+  { type: "style", label: "Sneakers", image: "photo-1542291026-7eec264c27ff", tag: "Sports" },
+  { type: "style", label: "Skincare", image: "photo-1620916297397-a4a5402a3c6c", tag: "Cosmetics" },
+  { type: "style", label: "Hiking Gear", image: "photo-1551632811-561732d1e306", tag: "Outdoors" },
+  { type: "style", label: "Coffee", image: "photo-1610632380989-680fe40816c6", tag: "Gourmet" }
+];
+
+const TASTE_PREFS_KEY = "omd_taste_prefs";
+
+function getTastePrefs() {
+  try {
+    return JSON.parse(localStorage.getItem(TASTE_PREFS_KEY) || '{"liked":[],"disliked":[]}');
+  } catch {
+    return { liked: [], disliked: [] };
+  }
+}
+
+function saveTastePrefs(prefs) {
+  localStorage.setItem(TASTE_PREFS_KEY, JSON.stringify(prefs));
+}
+
+function tasteCardImgHTML(card) {
+  if (card.type === "brand") {
+    return `<img src="https://logos.hunter.io/${card.logoDomain}" alt="" loading="lazy"
+      onload="if (this.naturalWidth < 32) this.closest('.taste-card').remove();"
+      onerror="this.closest('.taste-card').remove();" />`;
+  }
+  return `<img src="https://images.unsplash.com/${card.image}?w=500&q=80&fit=crop&auto=format" alt="" loading="lazy" />`;
+}
+
+function renderTasteQuiz() {
+  const grid = document.getElementById("tasteGrid");
+  if (!grid) return;
+  const prefs = getTastePrefs();
+  grid.innerHTML = TASTE_CARDS.map(card => {
+    const state = prefs.liked.includes(card.tag) ? "liked" : prefs.disliked.includes(card.tag) ? "disliked" : "";
+    return `
+    <div class="taste-card ${card.type} ${state}">
+      ${tasteCardImgHTML(card)}
+      <div class="taste-card-label">${card.label}</div>
+      <div class="taste-card-actions">
+        <button type="button" onclick="tasteReact('${card.tag}', false)" aria-label="Not for me">✕</button>
+        <button type="button" onclick="tasteReact('${card.tag}', true)" aria-label="I like this">♥</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function tasteReact(tag, liked) {
+  const prefs = getTastePrefs();
+  prefs.liked = prefs.liked.filter(t => t !== tag);
+  prefs.disliked = prefs.disliked.filter(t => t !== tag);
+  (liked ? prefs.liked : prefs.disliked).push(tag);
+  saveTastePrefs(prefs);
+  renderTasteQuiz();
+}
+
 function getUnlockedDeals() {
   try {
     return JSON.parse(localStorage.getItem(UNLOCKED_KEY) || "[]");
@@ -478,21 +551,40 @@ function toggleSurveyGroup(i) {
   }
 }
 
+// Splits anonymous taste-quiz likes (recorded pre-signup, see tasteReact)
+// back into interests vs. favoriteBrands, so they merge into the same
+// /api/preferences call the checkbox survey already makes — one signal,
+// regardless of which of the two ways someone expressed it.
+function getTasteLikesSplit() {
+  const liked = getTastePrefs().liked;
+  const interests = [];
+  const favoriteBrands = [];
+  TASTE_CARDS.forEach(card => {
+    if (!liked.includes(card.tag)) return;
+    (card.type === "brand" ? favoriteBrands : interests).push(card.tag);
+  });
+  return { interests, favoriteBrands };
+}
+
 async function submitSurvey(e) {
   e.preventDefault();
   const checked = Array.from(document.querySelectorAll("#surveyCategories input:checked")).map(i => i.value);
   const brandsRaw = document.getElementById("surveyBrandsInput").value;
-  const favoriteBrands = brandsRaw
+  const typedBrands = brandsRaw
     .split(",")
     .map(s => s.trim())
     .filter(Boolean);
 
-  if (checked.length || favoriteBrands.length) {
+  const taste = getTasteLikesSplit();
+  const interests = [...new Set([...checked, ...taste.interests])];
+  const favoriteBrands = [...new Set([...typedBrands, ...taste.favoriteBrands])];
+
+  if (interests.length || favoriteBrands.length) {
     try {
       await fetch("/api/preferences", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: pendingSurveyPhone, interests: checked, favoriteBrands })
+        body: JSON.stringify({ phone: pendingSurveyPhone, interests, favoriteBrands })
       });
     } catch (err) {
       console.warn("Could not save preferences, continuing anyway:", err.message);
@@ -502,6 +594,16 @@ async function submitSurvey(e) {
 }
 
 function skipSurvey() {
+  // Skipping the checkbox survey shouldn't lose taste-quiz likes recorded
+  // before sign-up — those are the only preference signal in that case.
+  const taste = getTasteLikesSplit();
+  if (taste.interests.length || taste.favoriteBrands.length) {
+    fetch("/api/preferences", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone: pendingSurveyPhone, interests: taste.interests, favoriteBrands: taste.favoriteBrands })
+    }).catch(() => {});
+  }
   finishSurvey();
 }
 
@@ -602,6 +704,7 @@ async function loadPersonalizationIfRegistered() {
 
 document.addEventListener("DOMContentLoaded", async () => {
   loadSurveyTags(); // not needed until first registration's survey step — don't block the grid on it
+  renderTasteQuiz(); // works instantly for anonymous visitors, no deals/backend needed
   LIVE_DEALS = await loadDeals();
   LIVE_CATEGORIES = getCategories(displayableDeals());
   renderCategoryBar();

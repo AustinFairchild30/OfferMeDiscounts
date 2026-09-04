@@ -146,6 +146,67 @@ nav.header-nav a:hover { color: #f3f0f8; }
   .hero { padding: 36px 0 32px; }
 }
 
+/* Taste quiz — anonymous, no-signup preference picker */
+.taste-quiz {
+  padding: 28px 0 8px;
+}
+.taste-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 14px;
+}
+.taste-card {
+  position: relative;
+  border-radius: var(--radius);
+  overflow: hidden;
+  aspect-ratio: 3 / 4;
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+.taste-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.taste-card.brand img {
+  object-fit: contain;
+  padding: 22px;
+  background: white;
+}
+.taste-card-label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 10px 10px 34px;
+  font-size: 13px;
+  font-weight: 700;
+  color: white;
+  background: linear-gradient(to top, rgba(20, 17, 26, 0.85), rgba(20, 17, 26, 0));
+}
+.taste-card-actions {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+}
+.taste-card-actions button {
+  flex: 1;
+  border: none;
+  padding: 8px 0;
+  font-size: 15px;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--ink-soft);
+}
+.taste-card-actions button:last-child { color: var(--brand-coral); }
+.taste-card-actions button:hover { background: white; }
+.taste-card.liked { outline: 2px solid var(--brand-mint-bright); }
+.taste-card.liked .taste-card-actions button:last-child { background: var(--brand-mint-soft); color: var(--brand-mint); }
+.taste-card.disliked { opacity: 0.45; }
+.taste-card.disliked .taste-card-actions button:first-child { background: #ffeef1; color: var(--brand-coral-dark); }
+
 /* How it works */
 .how-it-works {
   padding: 32px 0;
