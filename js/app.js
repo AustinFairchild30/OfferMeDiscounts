@@ -46,19 +46,43 @@ async function loadSurveyTags() {
 // for (tag = category name, feeds interests matching via categoryTags.js's
 // matching on the server). No backend/CJ data needed for either kind.
 const TASTE_CARDS = [
-  { type: "brand", label: "Marmot", logoDomain: "marmot.com", tag: "Marmot" },
   { type: "brand", label: "Stylevana", logoDomain: "stylevana.com", tag: "Stylevana" },
   { type: "brand", label: "Peet's Coffee", logoDomain: "peets.com", tag: "Peet's Coffee" },
   { type: "brand", label: "SoccerGarage", logoDomain: "soccergarage.com", tag: "SoccerGarage.com" },
   { type: "brand", label: "AndaSeat", logoDomain: "andaseat.com", tag: "AndaSeat" },
   { type: "brand", label: "Pine Meadow Golf", logoDomain: "pinemeadowgolf.com", tag: "pinemeadowgolf.com" },
+  { type: "brand", label: "Amiclubwear", logoDomain: "amiclubwear.com", tag: "Amiclubwear" },
+  { type: "brand", label: "UNice", logoDomain: "unice.com", tag: "UNice" },
+  { type: "brand", label: "Herbspro", logoDomain: "herbspro.com", tag: "Herbspro.com" },
+  { type: "brand", label: "Monoprice", logoDomain: "monoprice.com", tag: "Monoprice.com" },
+  { type: "brand", label: "Tech For Less", logoDomain: "techforless.com", tag: "Tech For Less" },
+  { type: "brand", label: "Sleep & Beyond", logoDomain: "sleepandbeyond.com", tag: "Sleep & Beyond" },
+  { type: "brand", label: "Nanit", logoDomain: "nanit.com", tag: "Nanit" },
+  { type: "brand", label: "VIGO", logoDomain: "vigoindustries.com", tag: "VIGO" },
+  { type: "brand", label: "Winebasket", logoDomain: "winebasket.com", tag: "Winebasket/Babybasket/Capalbosonline" },
+  { type: "brand", label: "Zinio", logoDomain: "zinio.com", tag: "ZINIO US" },
+  { type: "brand", label: "Buture", logoDomain: "ibuture.com", tag: "Buture" },
+  { type: "brand", label: "Snaps Clothing", logoDomain: "snapsclothing.com", tag: "Snaps Clothing Inc." },
   { type: "style", label: "Casual Tees", image: "photo-1618453292459-53424b66bb6a", tag: "Apparel" },
   { type: "style", label: "Denim", image: "photo-1598554747436-c9293d6a588f", tag: "Apparel" },
   { type: "style", label: "Sunglasses", image: "photo-1511499767150-a48a237f0083", tag: "Womens" },
+  { type: "style", label: "Men's Style", image: "photo-1618886614638-80e3c103d31a", tag: "Mens" },
   { type: "style", label: "Sneakers", image: "photo-1542291026-7eec264c27ff", tag: "Sports" },
+  { type: "style", label: "Gym & Fitness", image: "photo-1517836357463-d25dfeac3438", tag: "Wellness" },
   { type: "style", label: "Skincare", image: "photo-1620916297397-a4a5402a3c6c", tag: "Cosmetics" },
+  { type: "style", label: "Fragrance", image: "photo-1523293182086-7651a899d37f", tag: "Bath & Body" },
   { type: "style", label: "Hiking Gear", image: "photo-1551632811-561732d1e306", tag: "Outdoors" },
-  { type: "style", label: "Coffee", image: "photo-1610632380989-680fe40816c6", tag: "Gourmet" }
+  { type: "style", label: "Coffee", image: "photo-1610632380989-680fe40816c6", tag: "Gourmet" },
+  { type: "style", label: "Wine & Spirits", image: "photo-1510812431401-41d2bd2722f3", tag: "Gourmet" },
+  { type: "style", label: "Resort Travel", image: "photo-1549294413-26f195200c16", tag: "Hotel" },
+  { type: "style", label: "Fine Jewelry", image: "photo-1633934542430-0905ccb5f050", tag: "Jewelry" },
+  { type: "style", label: "Kids Toys", image: "photo-1596461404969-9ae70f2830c1", tag: "Toys" },
+  { type: "style", label: "Home Furniture", image: "photo-1631679706909-1844bbd07221", tag: "Furniture" },
+  { type: "style", label: "Headphones", image: "photo-1505740420928-5e560c06d30e", tag: "Consumer Electronics" },
+  { type: "style", label: "Flowers", image: "photo-1582794543139-8ac9cb0f7b11", tag: "Flowers" },
+  { type: "style", label: "Gift Boxes", image: "photo-1513201099705-a9746e1e201f", tag: "Gifts" },
+  { type: "style", label: "Watches", image: "photo-1600003014755-ba31aa59c4b6", tag: "Jewelry" },
+  { type: "style", label: "Smart Home", image: "photo-1558002038-1055907df827", tag: "Consumer Electronics" }
 ];
 
 const TASTE_PREFS_KEY = "omd_taste_prefs";
