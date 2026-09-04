@@ -9,7 +9,7 @@ const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
 const twilio = require("twilio");
 const { sendVerificationCode, checkVerificationCode, sendSms } = require("../lib/twilioClient");
 const { pickBestDeal, writeSmsCopy, parseInboundIntent, scoreDealsForUser } = require("../lib/claudeClient");
-const { readDeals, getDealById, addDeal, updateDeal, removeDeal, upsertCjDeals } = require("../lib/dealsStore");
+const { readDeals, getDealById, addDeal, updateDeal, removeDeal, upsertCjDeals, purgeExpiredDeals } = require("../lib/dealsStore");
 const { fetchCjDeals } = require("../lib/cjClient");
 const { CATEGORY_TAGS } = require("../lib/categoryTags");
 const { checkAndPruneDeadLinks } = require("../lib/linkChecker");
@@ -220,7 +220,8 @@ router.post("/cron/sync-cj", requireCronSecret, async (req, res) => {
     const cjDeals = await fetchCjDeals();
     const syncResult = await upsertCjDeals(cjDeals);
     const linkCheckResult = await checkAndPruneDeadLinks();
-    res.json({ success: true, ...syncResult, linkCheck: linkCheckResult });
+    const expiredResult = await purgeExpiredDeals();
+    res.json({ success: true, ...syncResult, linkCheck: linkCheckResult, expired: expiredResult });
   } catch (err) {
     console.error("Cron sync error:", err.message);
     res.status(500).json({ success: false, error: err.message });

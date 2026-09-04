@@ -118,4 +118,14 @@ async function removeDeal(id) {
   return rowCount > 0;
 }
 
-module.exports = { readDeals, getDealById, addDeal, updateDeal, removeDeal, upsertCjDeals };
+// Plain delete, no cj_excluded_links entry — expiring is a normal lifecycle
+// event, not a quality judgment. If the same advertiser link comes back
+// with a fresh future expiration on a later sync (a renewed promotion),
+// it should be free to reappear as a new row, not stay permanently
+// excluded the way a curated-out or dead-linked deal does.
+async function purgeExpiredDeals() {
+  const { rowCount } = await pool.query("DELETE FROM deals WHERE expires < CURRENT_DATE");
+  return { removed: rowCount };
+}
+
+module.exports = { readDeals, getDealById, addDeal, updateDeal, removeDeal, upsertCjDeals, purgeExpiredDeals };

@@ -65,7 +65,8 @@ function isRegistered() {
 // those stay in the database (still usable for personalization/matching)
 // but don't show up in the browsable grid at all.
 function displayableDeals() {
-  return LIVE_DEALS.filter(d => d.discount);
+  const today = new Date().toISOString().slice(0, 10);
+  return LIVE_DEALS.filter(d => d.discount && d.expires >= today);
 }
 
 function filteredDeals() {
