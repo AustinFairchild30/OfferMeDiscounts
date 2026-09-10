@@ -88,11 +88,43 @@ function cleanTitle(rawTitle, store) {
   return segments.join(" – ") || rawTitle;
 }
 
-// "Stylevana Affiliate Program" etc. — that's CJ's registered advertiser
-// name, not a consumer-facing brand name. Strip the business-relationship
-// suffix so the card just shows the actual brand.
+// Advertisers whose account name can't be turned into a brand name by rule:
+// a domain with no word breaks to recover, or one account covering several
+// brands (where picking which one leads is an editorial call, not a regex).
+const STORE_DISPLAY_NAMES = {
+  "pinemeadowgolf.com": "Pine Meadow Golf",
+  "herbspro.com": "HerbsPro",
+  "zinio us": "Zinio",
+  "winebasket/babybasket/capalbosonline": "Winebasket",
+  "dream pairs, bruno marc, & nortiv 8 shoes": "Dream Pairs"
+};
+
+// CJ's advertiser-name is an account name, not a brand name: it carries the
+// affiliate-relationship suffix ("Stylevana Affiliate Program"), bare domains
+// ("Monoprice.com"), legal suffixes ("Snaps Clothing Inc."), and region tags
+// ("ZINIO US"). Since the card redesign the store name IS the card headline
+// (dealCardHTML in js/app.js), so this is the most prominent text on every
+// card and has to read as a brand — the title-side cleanup below never
+// covered it, because back then the title was the headline.
+//
+// Note this deliberately takes the RAW advertiser name, not the cleaned one:
+// cleanTitle/pickBestTitle compare titles against rawStore, since it's the
+// raw name that advertisers repeat inside their own link names.
 function cleanStoreName(store) {
-  return (store || "").replace(/\s*Affiliate\s*(Program)?\s*$/i, "").trim() || store;
+  const raw = (store || "").trim();
+  if (!raw) return store;
+
+  const named = STORE_DISPLAY_NAMES[raw.toLowerCase()];
+  if (named) return named;
+
+  const cleaned = raw
+    .replace(/\s*Affiliate\s*(Program)?\s*$/i, "")
+    .replace(/,?\s*\b(Inc|LLC|L\.L\.C|Corp|Corporation|Ltd|Co)\b\.?\s*$/i, "")
+    .replace(/\s+(US|USA)\s*$/, "") // case-sensitive: only the region tag, never a word ending in "us"
+    .replace(/\.(com|net|org)\s*$/i, "")
+    .trim();
+
+  return cleaned || raw;
 }
 
 // Now-redundant since every deal is US-only (see isNonUsTargeted) — was

@@ -167,6 +167,10 @@ async function parseInboundIntent(messageBody) {
 // (ranked via engagedStores), and a penalty for stores they've said they're
 // not interested in. Returns a plain {dealId: score} map; a deal with no
 // signal at all scores 0, not missing.
+function normalizeBrand(name) {
+  return (name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 function scoreDealsForUser(user, deals) {
   const scores = {};
   if (!user) {
@@ -174,7 +178,12 @@ function scoreDealsForUser(user, deals) {
     return scores;
   }
 
-  const favorites = (user.favoriteBrands || []).map(b => b.toLowerCase().trim()).filter(Boolean);
+  // Favorite brands arrive from a free-text field and from taste-quiz tags,
+  // so the same brand shows up as "Pine Meadow Golf", "pinemeadowgolf.com" or
+  // "PineMeadowGolf" depending on where it came from — and cleanStoreName()
+  // can rename a store out from under a favorite that was saved earlier.
+  // Comparing on letters and digits only makes all of those the same string.
+  const favorites = (user.favoriteBrands || []).map(normalizeBrand).filter(f => f.length >= 3);
   const interests = new Set((user.interests || []).map(i => i.toLowerCase()));
   const engaged = engagedStores(user, deals); // ranked strongest-signal-first
   const disliked = new Set(dislikedStores(user, deals));
@@ -183,8 +192,8 @@ function scoreDealsForUser(user, deals) {
 
   for (const deal of deals) {
     let score = 0;
-    const store = (deal.store || "").toLowerCase();
-    const brand = (deal.brand || "").toLowerCase();
+    const store = normalizeBrand(deal.store);
+    const brand = normalizeBrand(deal.brand);
 
     if (favorites.some(f => store.includes(f) || f.includes(store) || (brand && (brand.includes(f) || f.includes(brand))))) {
       score += 100;
