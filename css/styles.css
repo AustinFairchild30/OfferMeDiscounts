@@ -144,9 +144,11 @@ nav.header-nav a:hover { color: #f3f0f8; }
 .hero-stats strong { display: block; font-size: 20px; color: var(--brand-mint-bright); font-variant-numeric: tabular-nums; }
 /* The daily link check and expiry purge are the real differentiator against
    coupon sites full of dead codes — say so where a first-time visitor and an
-   affiliate reviewer both see it. */
-.hero-trust {
-  margin: 18px 0 0;
+   affiliate reviewer both see it.
+   Scoped as .hero .hero-trust so it outranks `.hero p` above, which would
+   otherwise win on specificity and impose its own 15px and zero top margin. */
+.hero .hero-trust {
+  margin: 16px 0 0;
   font-size: 13px;
   color: var(--plum-soft);
   max-width: 52ch;
