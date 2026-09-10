@@ -133,6 +133,121 @@ function tasteReact(tag, liked) {
   (liked ? prefs.liked : prefs.disliked).push(tag);
   saveTastePrefs(prefs);
   renderTasteQuiz();
+  // The whole point of the quiz is that picking something visibly changes
+  // what you're shown — re-rank the grid immediately rather than banking the
+  // preference for a future session the visitor may never have.
+  applyTastePrefs();
+}
+
+/* ---------- Turning taste picks into an on-page result ---------- */
+
+// {dealId: score} and {dealId: "why"} for an anonymous visitor's picks.
+// Deliberately separate from PERSONALIZED_SCORES, which is the server's
+// answer for a registered user and already has these merged into it.
+let TASTE_SCORES = {};
+let TASTE_REASONS = {};
+
+// Same comparison the server's scoreDealsForUser uses: letters and digits
+// only. A brand card's tag is a store name, and store names get rewritten by
+// cleanStoreName on sync ("pinemeadowgolf.com" to "Pine Meadow Golf"), so a
+// literal match would break for whichever side updates first.
+function normalizeBrandName(name) {
+  return (name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function tasteSignals() {
+  const prefs = getTastePrefs();
+  const sig = { likedStores: [], likedCategories: [], dislikedStores: [], dislikedCategories: [] };
+  for (const card of TASTE_CARDS) {
+    const liked = prefs.liked.includes(card.tag);
+    const disliked = prefs.disliked.includes(card.tag);
+    if (!liked && !disliked) continue;
+    if (card.type === "brand") {
+      (liked ? sig.likedStores : sig.dislikedStores).push({ tag: card.tag, label: card.label });
+    } else {
+      (liked ? sig.likedCategories : sig.dislikedCategories).push({ tag: card.tag, label: card.label });
+    }
+  }
+  return sig;
+}
+
+function storeMatches(dealStore, tag) {
+  const a = normalizeBrandName(dealStore);
+  const b = normalizeBrandName(tag);
+  return Boolean(a && b && (a.includes(b) || b.includes(a)));
+}
+
+// A liked brand outranks a liked category, mirroring the server's 100/20
+// split, so "I like this exact shop" beats "I like this kind of thing".
+function recomputeTasteScores() {
+  TASTE_SCORES = {};
+  TASTE_REASONS = {};
+  const sig = tasteSignals();
+  if (!sig.likedStores.length && !sig.likedCategories.length &&
+      !sig.dislikedStores.length && !sig.dislikedCategories.length) return;
+
+  for (const deal of LIVE_DEALS) {
+    let score = 0;
+    let reason = null;
+
+    const brandHit = sig.likedStores.find(s => storeMatches(deal.store, s.tag));
+    if (brandHit) { score += 100; reason = brandHit.label; }
+
+    const categoryHit = sig.likedCategories.find(c => c.tag === deal.category);
+    if (categoryHit) { score += 20; if (!reason) reason = categoryHit.label; }
+
+    if (sig.dislikedStores.some(s => storeMatches(deal.store, s.tag))) score -= 100;
+    if (sig.dislikedCategories.some(c => c.tag === deal.category)) score -= 20;
+
+    if (score) TASTE_SCORES[deal.id] = score;
+    if (score > 0 && reason) TASTE_REASONS[deal.id] = reason;
+  }
+}
+
+// A registered visitor's server-side scores already account for their quiz
+// picks (submitSurvey/skipSurvey merge them in), so they win outright.
+function activeScores() {
+  return Object.keys(PERSONALIZED_SCORES).length ? PERSONALIZED_SCORES : TASTE_SCORES;
+}
+
+function applyTastePrefs() {
+  recomputeTasteScores();
+  renderDeals();
+  renderTasteResult();
+}
+
+// The moment someone has expressed real taste is the moment to make the
+// offer — before this the quiz section had no call to action at all, which
+// left the highest-intent visitor on the page with nothing to do next.
+const TASTE_CTA_THRESHOLD = 3;
+
+function renderTasteResult() {
+  const el = document.getElementById("tasteResult");
+  if (!el) return;
+
+  const likes = getTastePrefs().liked.length;
+  const matches = displayableDeals().filter(d => (TASTE_SCORES[d.id] || 0) > 0).length;
+
+  if (!likes) {
+    el.innerHTML = "";
+    return;
+  }
+  if (likes < TASTE_CTA_THRESHOLD) {
+    const left = TASTE_CTA_THRESHOLD - likes;
+    el.innerHTML = `<div class="taste-result">
+      <span>${likes} picked — tap ${left} more and we'll sort the deals around what you like.</span>
+    </div>`;
+    return;
+  }
+
+  el.innerHTML = `<div class="taste-result ready">
+    <span><strong>${matches}</strong> deal${matches === 1 ? "" : "s"} match what you picked — they're at the top of the list now.</span>
+    <button type="button" class="taste-cta" onclick="scrollToMatches()">See my deals</button>
+  </div>`;
+}
+
+function scrollToMatches() {
+  document.getElementById("browse").scrollIntoView({ behavior: "smooth" });
 }
 
 function getUnlockedDeals() {
@@ -202,6 +317,7 @@ function dealCardHTML(d) {
       </div>
       <h3>${d.store}</h3>
       <div class="deal-store">${d.category}</div>
+      ${TASTE_REASONS[d.id] ? `<div class="match-reason">Because you like ${TASTE_REASONS[d.id]}</div>` : ""}
       <div class="card-footer">
         <span>Expires ${formatDate(d.expires)}</span>
         <button class="get-code-btn" onclick="event.stopPropagation(); openDealModal('${d.id}')">Get Code</button>
@@ -306,17 +422,65 @@ function interleaveByStore(deals) {
 // matches first" layered on top of the discovery shuffle, not a full
 // replacement of it.
 function orderDeals(deals) {
-  if (!Object.keys(PERSONALIZED_SCORES).length) return interleaveByStore(deals);
-  const matched = shuffleInPlace(deals.filter(d => (PERSONALIZED_SCORES[d.id] || 0) > 0));
-  const rest = deals.filter(d => (PERSONALIZED_SCORES[d.id] || 0) <= 0);
-  matched.sort((a, b) => (PERSONALIZED_SCORES[b.id] || 0) - (PERSONALIZED_SCORES[a.id] || 0)); // stable — shuffle above breaks ties
-  return [...matched, ...interleaveByStore(rest)];
+  const scores = activeScores();
+  if (!Object.keys(scores).length) return interleaveByStore(deals);
+
+  const matched = shuffleInPlace(deals.filter(d => (scores[d.id] || 0) > 0));
+  const neutral = deals.filter(d => (scores[d.id] || 0) === 0);
+  // A dislike is a real signal and cheaper to give than a like, so it should
+  // actually cost the deal its place rather than just greying out a card.
+  const buried = deals.filter(d => (scores[d.id] || 0) < 0);
+
+  return [...rankMatched(matched, scores), ...interleaveByStore(neutral), ...buried];
+}
+
+// Sorting the matched group by score alone stacked every deal from a liked
+// brand at the top — seven consecutive Stylevana cards the moment you liked
+// Stylevana, which is the clustering interleaveByStore exists to prevent,
+// reintroduced right above the fold. interleaveByStore can't be reused here
+// because it shuffles the store order and would throw the ranking away, so
+// this round-robins across stores while keeping score in charge of who goes
+// first: best match leads, then one deal per store per pass.
+function rankMatched(deals, scores) {
+  const buckets = new Map();
+  for (const deal of deals) {
+    if (!buckets.has(deal.store)) buckets.set(deal.store, []);
+    buckets.get(deal.store).push(deal);
+  }
+
+  for (const group of buckets.values()) {
+    group.sort(
+      (a, b) =>
+        (scores[b.id] || 0) - (scores[a.id] || 0) ||
+        discountValue(b.discount) - discountValue(a.discount)
+    );
+  }
+  const groups = [...buckets.values()].sort(
+    (a, b) => (scores[b[0].id] || 0) - (scores[a[0].id] || 0)
+  );
+
+  const result = [];
+  let anyLeft = true;
+  while (anyLeft) {
+    anyLeft = false;
+    for (const group of groups) {
+      if (group.length) {
+        result.push(group.shift());
+        if (group.length) anyLeft = true;
+      }
+    }
+  }
+  return result;
 }
 
 function renderDeals() {
   const grid = document.getElementById("dealGrid");
   const deals = orderDeals(filteredDeals());
-  document.getElementById("resultCount").textContent = `${deals.length} deal${deals.length === 1 ? "" : "s"}`;
+  const scores = activeScores();
+  const matches = deals.filter(d => (scores[d.id] || 0) > 0).length;
+  document.getElementById("resultCount").textContent =
+    `${deals.length} deal${deals.length === 1 ? "" : "s"}` +
+    (matches ? ` · ${matches} matched to you` : "");
   if (deals.length === 0) {
     grid.innerHTML = `<div class="empty-state">No deals match "${searchTerm}" ${activeCategory !== "All" ? "in " + activeCategory : ""}. Try another search or category.</div>`;
     return;
@@ -731,9 +895,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   renderTasteQuiz(); // works instantly for anonymous visitors, no deals/backend needed
   LIVE_DEALS = await loadDeals();
   LIVE_CATEGORIES = getCategories(displayableDeals());
+  recomputeTasteScores(); // picks from a previous visit apply before the first paint
   renderCategoryBar();
   renderFeatured();
   renderDeals();
+  renderTasteResult();
   document.getElementById("dealCountStat").textContent = displayableDeals().length;
   document.getElementById("storeCountStat").textContent = new Set(displayableDeals().map(d => d.store)).size;
   document.getElementById("categoryCountStat").textContent = LIVE_CATEGORIES.length;
