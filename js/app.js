@@ -1,9 +1,9 @@
-// OfferMeDiscounts.com prototype front-end logic.
-// Everything here runs client-side with no build step or backend.
-// The SMS registration/unlock flow below is a MOCK: it simulates the
-// "text number to unlock your first coupon" gate described in the
-// business plan, but does not send real texts. See README.md for how
-// to wire this to real Twilio + Claude API per the roadmap doc.
+// OfferMeDiscounts.com front-end logic. No build step — plain scripts
+// against the Express/Postgres backend in backend/.
+// The SMS registration/unlock flow below is real, not a simulation: it
+// sends genuine one-time passcodes through Twilio Verify from a
+// carrier-approved toll-free number, and deals come from live CJ
+// Affiliate partnerships. See backend/README.md for the server side.
 
 const STORAGE_KEY = "omd_registered_phone";
 const UNLOCKED_KEY = "omd_unlocked_deals";

@@ -146,6 +146,27 @@ nav.header-nav a:hover { color: #f3f0f8; }
   .hero { padding: 36px 0 32px; }
 }
 
+/* Live catalog figures on a light background — .hero-stats is coloured for
+   the dark plum hero and doesn't carry over. Hidden until the fetch that
+   fills it succeeds, so a failed request shows nothing rather than zeroes. */
+.fact-row {
+  display: flex;
+  gap: 30px;
+  flex-wrap: wrap;
+  margin: 22px 0 28px;
+  padding: 16px 20px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.fact-row div { font-size: 13px; color: var(--ink-soft); }
+.fact-row strong {
+  display: block;
+  font-size: 22px;
+  color: var(--brand-mint);
+  font-variant-numeric: tabular-nums;
+}
+
 /* Taste quiz — anonymous, no-signup preference picker */
 .taste-quiz {
   padding: 28px 0 8px;

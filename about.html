@@ -25,6 +25,12 @@
 
   <p>OfferMeDiscounts.com is a deal-discovery site built around a simple idea: unlocking a coupon should take one text, not ten browser tabs. Instead of hunting through expired codes and pop-up ads, you pick a deal, verify your phone number once, and get a working code — on screen and in a text.</p>
 
+  <div class="fact-row" id="factRow" hidden>
+    <div><strong id="factDeals">0</strong>Active deals</div>
+    <div><strong id="factStores">0</strong>Retail partners</div>
+    <div><strong id="factCategories">0</strong>Categories</div>
+  </div>
+
   <h2>How it works</h2>
   <ol>
     <li><strong>Browse or search</strong> deals across categories like electronics, food, travel, and more.</li>
@@ -34,20 +40,57 @@
   <p>You can opt out of texts at any time by replying <strong>STOP</strong> — see our <a href="terms.html">Terms of Service</a> and <a href="privacy.html">Privacy Policy</a> for the details.</p>
 
   <h2>Where the deals come from</h2>
-  <p>Today's catalog is hand-curated. We're in the process of applying to affiliate networks so future deals come directly from real retailer partnerships — when that happens, this page will be updated to reflect it.</p>
+  <p>Every offer on this site comes from a direct affiliate partnership with the retailer, through the <a href="https://www.cj.com" rel="noopener noreferrer" target="_blank">CJ Affiliate</a> network. Nothing is scraped from other coupon sites, and no code is invented or guessed at.</p>
+  <p>The catalog re-syncs from our partners automatically every day. New offers arrive, expired ones are deleted, and every outbound link is followed to the retailer's own site to confirm it still resolves — a link that fails two days running is pulled from the site. Dead codes are the usual complaint about coupon sites, and this is how we keep them off ours.</p>
+
+  <h2>For brands and partners</h2>
+  <p>We're not a search-arbitrage coupon site. The offer is the acquisition hook; the asset is an opted-in messaging audience.</p>
+  <ul>
+    <li><strong>Every contact is verified and explicitly opted in.</strong> A one-time password confirms the number really belongs to the person entering it, and ongoing marketing consent is a separate, unchecked checkbox — never bundled into the verification step.</li>
+    <li><strong>Built for TCPA compliance from the start.</strong> Express written consent, honored <strong>STOP</strong> and <strong>HELP</strong> handling, and a toll-free number vetted and approved by the carriers. Our <a href="opt-in-proof.html">opt-in proof page</a> documents the exact flow.</li>
+    <li><strong>Offers are matched, not blasted.</strong> Subscribers tell us the brands and categories they care about, and we send what fits — which keeps list health up and puts your offer in front of people who asked for that kind of thing.</li>
+    <li><strong>Traffic is sent through your tracked links,</strong> so every click and conversion is attributable in your own network reporting.</li>
+  </ul>
+  <p>If you run an affiliate or partnerships program and want to talk about working together, we'd like to hear from you — see below.</p>
 
   <h2>Contact</h2>
-  <p>Questions, feedback, or interested in partnering? Email <a href="mailto:fairchildaustin0@gmail.com">fairchildaustin0@gmail.com</a>.</p>
+  <p>Questions, feedback, or partnership inquiries: <a href="mailto:fairchildaustin0@gmail.com">fairchildaustin0@gmail.com</a>.</p>
 
   <p style="margin-top:32px;"><a href="index.html">Back to home</a></p>
 </main>
 
 <footer class="site-footer">
   <div class="wrap">
-    <div>&copy; 2026 OfferMeDiscounts.com — prototype build.</div>
+    <div>&copy; 2026 OfferMeDiscounts.com</div>
     <div><a href="terms.html">Terms</a> &middot; <a href="privacy.html">Privacy</a> &middot; <a href="admin.html">Admin dashboard</a></div>
   </div>
 </footer>
+
+<script>
+// Catalog figures are read live rather than written into the copy, so this
+// page can't drift out of date the way a hardcoded claim would. Same filter
+// the homepage grid uses (displayableDeals in js/app.js): a real discount,
+// not expired. On any failure the block stays hidden — better to show
+// nothing than a row of zeroes to someone evaluating us.
+(async () => {
+  try {
+    const res = await fetch("/api/deals");
+    if (!res.ok) return;
+    const data = await res.json();
+    const all = Array.isArray(data) ? data : (data.deals || []);
+    const today = new Date().toISOString().slice(0, 10);
+    const live = all.filter(d => d.discount && d.expires >= today);
+    if (!live.length) return;
+
+    document.getElementById("factDeals").textContent = live.length;
+    document.getElementById("factStores").textContent = new Set(live.map(d => d.store)).size;
+    document.getElementById("factCategories").textContent = new Set(live.map(d => d.category)).size;
+    document.getElementById("factRow").hidden = false;
+  } catch {
+    /* leave the block hidden */
+  }
+})();
+</script>
 
 </body>
 </html>
