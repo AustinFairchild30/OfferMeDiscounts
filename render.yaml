@@ -3,9 +3,15 @@ services:
     name: offermediscounts
     runtime: node
     plan: free
-    rootDir: backend
-    buildCommand: npm install
-    startCommand: npm start
+    # Deliberately no rootDir. This service serves the whole repo, not just
+    # backend/ — server.js does express.static(path.join(__dirname, "..")),
+    # so index.html, about.html, css/ and js/ are all served from the repo
+    # root. With rootDir: backend, Render only auto-deployed commits that
+    # touched backend/**, so every frontend-only commit sat undeployed until
+    # an unrelated backend change happened to flush it through.
+    # The commands cd in so npm and dotenv still resolve against backend/.
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && npm start
     envVars:
       - key: TWILIO_ACCOUNT_SID
         sync: false

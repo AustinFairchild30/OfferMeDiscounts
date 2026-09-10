@@ -26,9 +26,10 @@ app.get("/admin.html", (req, res, next) => {
   res.redirect("/admin-login.html");
 });
 
-// Serve the existing front-end prototype (index.html, admin.html, css/, js/)
-// straight from the project root, so the same site now talks to a real
-// backend instead of the mocked localStorage flow.
+// Serve the front-end (index.html, about.html, admin.html, css/, js/)
+// straight from the project root — one service serves both the site and the
+// API. Note this reaches OUTSIDE backend/, which is why render.yaml
+// deliberately sets no rootDir; see the comment there.
 app.use(express.static(path.join(__dirname, "..")));
 
 app.use("/api", apiRouter);
