@@ -241,6 +241,75 @@ async function fetchAllCjLinks(token, websiteId) {
   return allLinks;
 }
 
+// No single advertiser should be allowed to swamp the catalog. The Excellence
+// Collection publishes one near-identical link per hotel property and grew to
+// 147 deals — 60% of the entire site — against a median of 5 for everyone
+// else. Hand-curating that advertiser down worked twice before and was
+// outrun both times, so this is the structural version of the same call.
+//
+// 20 is deliberately generous: with 27 advertisers it allows a catalog of
+// ~540, well clear of current volume, so it only ever bites the outliers.
+const MAX_DEALS_PER_ADVERTISER = 20;
+
+function discountRank(deal) {
+  if (!deal.discount) return -1;              // code-only deals are dropped first
+  const n = deal.discount.match(/(\d+(?:\.\d+)?)/);
+  return n ? parseFloat(n[1]) : 0;            // "Free Shipping" outranks nothing but null
+}
+
+// Advertisers routinely register one link per placement or property that all
+// resolve to the same offer — the Excellence Collection had the same "5% OFF
+// / VIP5" registered against 15+ hotels. Since a card shows store and
+// discount only, those render as identical duplicates (the same way four
+// SilverRushStyle "95% OFF" links once filled all four featured slots), and
+// the code behind them is literally the same string, so keeping one loses
+// the visitor nothing.
+//
+// Collapsing on (store, discount, code) deliberately does NOT merge offers
+// that differ in either field — Stylevana's "20% off for members, 10% off
+// for Guest shoppers" is two real, non-interchangeable offers, not a
+// duplicate. Ties break toward the latest expiry, then the lowest link-id,
+// so the survivor is the same one on every sync.
+function dedupeIdenticalOffers(deals) {
+  const best = new Map();
+  for (const deal of deals) {
+    const key = `${deal.store} ${deal.discount || ""} ${deal.code || ""}`;
+    const held = best.get(key);
+    if (!held) {
+      best.set(key, deal);
+      continue;
+    }
+    const better =
+      String(deal.expires || "").localeCompare(String(held.expires || "")) ||
+      String(held.cjLinkId).localeCompare(String(deal.cjLinkId));
+    if (better > 0) best.set(key, deal);
+  }
+  return [...best.values()];
+}
+
+// Which deals survive the cap is decided deterministically — real discount
+// first, then size of discount, then link-id — rather than by taking the
+// first N in CJ's order. CJ's ordering isn't stable between syncs, so an
+// order-dependent rule would keep a different subset each day and leave the
+// previous day's picks stranded in the table as orphans.
+function capPerAdvertiser(deals) {
+  const byStore = new Map();
+  for (const deal of deals) {
+    if (!byStore.has(deal.store)) byStore.set(deal.store, []);
+    byStore.get(deal.store).push(deal);
+  }
+
+  const kept = [];
+  for (const list of byStore.values()) {
+    list.sort((a, b) =>
+      discountRank(b) - discountRank(a) ||
+      String(a.cjLinkId).localeCompare(String(b.cjLinkId))
+    );
+    kept.push(...list.slice(0, MAX_DEALS_PER_ADVERTISER));
+  }
+  return kept;
+}
+
 async function fetchCjDeals() {
   const token = process.env.CJ_PERSONAL_ACCESS_TOKEN;
   const websiteId = process.env.CJ_WEBSITE_ID;
@@ -258,7 +327,7 @@ async function fetchCjDeals() {
   // plain product pages, tracking sub-IDs, homepage links — not just discounts.
   // promotion-type is "N/A" (or blank) on all of those; only keep links the
   // advertiser actually tagged as a real promotion.
-  return allLinks
+  const deals = allLinks
     .filter(link => link && (link.clickUrl || link.clickURL) && link.destination)
     .filter(link => link["promotion-type"] && link["promotion-type"] !== "N/A")
     .filter(link => !isNonUsTargeted(link["link-name"] || link.description || ""))
@@ -269,6 +338,10 @@ async function fetchCjDeals() {
     // though there's no actual discount or code attached. Without either,
     // it's just a product link, not a deal.
     .filter(d => d.discount || d.code);
+
+  // ...then collapse links that are the same offer wearing different
+  // link-ids, and stop any one advertiser owning the catalog. See above.
+  return capPerAdvertiser(dedupeIdenticalOffers(deals));
 }
 
 module.exports = { fetchCjDeals };

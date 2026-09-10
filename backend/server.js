@@ -26,11 +26,27 @@ app.get("/admin.html", (req, res, next) => {
   res.redirect("/admin-login.html");
 });
 
-// Serve the front-end (index.html, about.html, admin.html, css/, js/)
-// straight from the project root — one service serves both the site and the
-// API. Note this reaches OUTSIDE backend/, which is why render.yaml
-// deliberately sets no rootDir; see the comment there.
-app.use(express.static(path.join(__dirname, "..")));
+// Serve the front-end from the project root — one service serves both the
+// site and the API. Note this reaches OUTSIDE backend/, which is why
+// render.yaml deliberately sets no rootDir; see the comment there.
+//
+// This is an explicit allowlist rather than express.static(SITE_ROOT). That
+// served the whole repository, so backend/lib/*.js, backend/db/schema.sql,
+// backend/package.json, render.yaml and README.md were all fetchable over
+// HTTP. No credentials leaked (.env is gitignored, and Render injects env
+// vars rather than shipping a file), but it handed out the database schema,
+// the admin-auth implementation and the rate-limit thresholds to anyone who
+// guessed a path. Any new top-level page or asset needs adding here.
+const SITE_ROOT = path.join(__dirname, "..");
+const PAGES = ["index", "about", "admin", "admin-login", "opt-in-proof", "privacy", "terms"];
+
+app.use("/css", express.static(path.join(SITE_ROOT, "css")));
+app.use("/js", express.static(path.join(SITE_ROOT, "js")));
+
+app.get("/", (req, res) => res.sendFile(path.join(SITE_ROOT, "index.html")));
+for (const page of PAGES) {
+  app.get(`/${page}.html`, (req, res) => res.sendFile(path.join(SITE_ROOT, `${page}.html`)));
+}
 
 app.use("/api", apiRouter);
 
