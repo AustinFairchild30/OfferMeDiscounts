@@ -197,4 +197,105 @@ function showToast(msg) {
 
 document.addEventListener("DOMContentLoaded", () => {
   refreshAll();
+  loadFunnel();
 });
+
+/* ---------------- Funnel report ---------------- */
+
+const FUNNEL_LABELS = {
+  page_view: "Visited the site",
+  deal_view: "Opened a deal",
+  phone_submit: "Entered a number",
+  otp_verified: "Verified the number",
+  code_revealed: "Got the code"
+};
+
+function pct(n) {
+  return `${n.toFixed(1)}%`;
+}
+
+async function loadFunnel() {
+  const panel = document.getElementById("funnelPanel");
+  if (!panel) return;
+  const days = document.getElementById("funnelDays").value;
+
+  let report;
+  try {
+    const res = await fetch(`/api/admin/funnel?days=${days}`);
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || "Request failed");
+    report = data.report;
+  } catch (err) {
+    panel.innerHTML = `<p style="color:var(--brand-coral-dark);">Couldn't load the funnel: ${err.message}</p>`;
+    return;
+  }
+
+  const top = report.funnel[0]?.visitors || 0;
+  if (!top) {
+    panel.innerHTML = `<p style="color:var(--ink-soft);">No traffic recorded in this window yet. Steps are logged from the live site as visitors move through it.</p>`;
+    return;
+  }
+
+  // Each row's bar is width-proportional to the top of the funnel, so the
+  // drop-offs are visible at a glance rather than needing the numbers read.
+  const rows = report.funnel.map((f, i) => {
+    const prev = i === 0 ? null : report.funnel[i - 1];
+    const lost = prev ? prev.visitors - f.visitors : 0;
+    return `
+      <div class="funnel-row">
+        <div class="funnel-label">${FUNNEL_LABELS[f.step] || f.step}</div>
+        <div class="funnel-track"><div class="funnel-bar" style="width:${Math.max(f.ofTop, 1)}%"></div></div>
+        <div class="funnel-figures">
+          <strong>${f.visitors}</strong>
+          <span>${pct(f.ofTop)} of visitors${prev ? ` · ${pct(f.ofPrevious)} of previous step` : ""}${lost > 0 ? ` · lost ${lost}` : ""}</span>
+        </div>
+      </div>`;
+  }).join("");
+
+  const campaigns = report.campaigns.length
+    ? report.campaigns.map(c => `
+        <tr>
+          <td>${c.source}${c.medium ? ` <span style="color:var(--ink-soft);">/ ${c.medium}</span>` : ""}</td>
+          <td>${c.campaign || "—"}</td>
+          <td>${c.visitors}</td>
+          <td>${c.registered}</td>
+          <td>${c.visitors ? pct((c.registered / c.visitors) * 100) : "—"}</td>
+          <td>${c.outbound_clicks}</td>
+        </tr>`).join("")
+    : `<tr><td colspan="6" style="color:var(--ink-soft);">Nothing recorded yet.</td></tr>`;
+
+  const deals = report.deals.length
+    ? report.deals.map(d => `
+        <tr>
+          <td>${d.store || d.deal_id}</td>
+          <td>${d.discount || "—"}</td>
+          <td>${d.views}</td>
+          <td>${d.copies}</td>
+          <td>${d.clicks}</td>
+        </tr>`).join("")
+    : `<tr><td colspan="5" style="color:var(--ink-soft);">Nothing recorded yet.</td></tr>`;
+
+  panel.innerHTML = `
+    <div class="funnel-wrap">${rows}</div>
+    <div class="stat-cards" style="margin-top:18px;">
+      <div class="stat-card"><div class="label">Outbound clicks</div><div class="value">${report.outboundClicks}</div></div>
+      <div class="stat-card"><div class="label">Codes copied</div><div class="value">${report.codeCopies}</div></div>
+      <div class="stat-card"><div class="label">Visitor → registered</div><div class="value">${pct(report.funnel[3]?.ofTop || 0)}</div></div>
+    </div>
+
+    <div class="section-head"><h2 style="font-size:16px;">Where they came from</h2></div>
+    <div style="overflow-x:auto;">
+      <table class="admin-table">
+        <thead><tr><th>Source</th><th>Campaign</th><th>Visitors</th><th>Registered</th><th>Rate</th><th>Outbound</th></tr></thead>
+        <tbody>${campaigns}</tbody>
+      </table>
+    </div>
+
+    <div class="section-head"><h2 style="font-size:16px;">Deals people acted on</h2></div>
+    <div style="overflow-x:auto;">
+      <table class="admin-table">
+        <thead><tr><th>Store</th><th>Discount</th><th>Views</th><th>Copies</th><th>Outbound</th></tr></thead>
+        <tbody>${deals}</tbody>
+      </table>
+    </div>`;
+}

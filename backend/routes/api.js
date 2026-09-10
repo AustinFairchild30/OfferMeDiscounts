@@ -14,6 +14,7 @@ const { fetchCjDeals } = require("../lib/cjClient");
 const { CATEGORY_TAGS } = require("../lib/categoryTags");
 const { checkAndPruneDeadLinks } = require("../lib/linkChecker");
 const { getUser, getAllUsers, upsertUser, logEngagement, markLastEngagementDisliked, markLastEngagementCopied } = require("../lib/userStore");
+const { recordEvent, attachPhoneToVisitor, report: funnelReport } = require("../lib/funnelStore");
 const { COOKIE_NAME, SESSION_TTL_MS, createSessionToken, checkPassword, requireAdmin, requireCronSecret } = require("../lib/adminAuth");
 
 const router = express.Router();
@@ -71,6 +72,19 @@ const confirmIpLimiter = rateLimit({
 const adminLoginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: clientIp,
+  handler: rateLimitedJson
+});
+
+// /api/track is open to anonymous visitors by design, so it needs its own
+// ceiling. Generous, because one ordinary session legitimately fires a
+// handful of events, but bounded so a script can't use it to inflate the
+// numbers the launch will be judged on or just fill the table.
+const trackLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 120,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: clientIp,
@@ -232,6 +246,37 @@ router.get("/health", (req, res) => {
   res.json({ ok: true });
 });
 
+// Records one funnel step. Fire-and-forget from the browser, so it always
+// answers 200 and never blocks or surfaces an error to the visitor —
+// analytics failing is not a reason for the site to misbehave. Invalid steps
+// and malformed visitor ids are dropped silently by funnelStore.
+router.post("/track", trackLimiter, async (req, res) => {
+  try {
+    await recordEvent({
+      visitorId: req.body?.visitorId,
+      phone: toE164(req.body?.phone) || null,
+      step: req.body?.step,
+      dealId: req.body?.dealId,
+      source: req.body?.source,
+      medium: req.body?.medium,
+      campaign: req.body?.campaign
+    });
+  } catch (err) {
+    console.error("Track error:", err.message);
+  }
+  res.json({ ok: true });
+});
+
+router.get("/admin/funnel", requireAdmin, async (req, res) => {
+  const days = Math.min(Math.max(parseInt(req.query.days, 10) || 30, 1), 365);
+  try {
+    res.json({ success: true, report: await funnelReport(days) });
+  } catch (err) {
+    console.error("Funnel report error:", err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Saves a user's declared category interests (one-time preference survey
 // shown right after their first OTP confirmation) so pickBestDeal/writeSmsCopy
 // in claudeClient.js can actually personalize future deal picks/copy.
@@ -324,6 +369,15 @@ router.post("/confirm", confirmIpLimiter, async (req, res) => {
       verified: true,
       registeredAt: existing?.registeredAt || new Date().toISOString()
     });
+
+    // Claim this visitor's earlier anonymous steps for the number they just
+    // proved, so the session reads as one attributable journey. Never let an
+    // analytics failure break a verification the user has already passed.
+    try {
+      await attachPhoneToVisitor(req.body.visitorId, phone);
+    } catch (err) {
+      console.error("Funnel attribution error:", err.message);
+    }
 
     const smsText = await writeSmsCopy(await getUser(phone), deal);
 

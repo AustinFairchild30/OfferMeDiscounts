@@ -8,6 +8,78 @@
 const STORAGE_KEY = "omd_registered_phone";
 const UNLOCKED_KEY = "omd_unlocked_deals";
 
+/* ---------------- Funnel tracking ---------------- */
+
+// First-party only: an anonymous id in this browser plus whatever campaign
+// brought the visitor here, posted to our own /api/track. No third-party
+// tag, no cross-site identifier, nothing that needs a consent banner.
+// This exists because the roadmap's four V1 success metrics — CPA, SMS CTR,
+// redemption, site conversion/ROAS — were all unmeasurable: the only thing
+// recorded was a copy event, and only for people who had already registered,
+// which is precisely the group whose behaviour was never in question.
+const VISITOR_KEY = "omd_visitor_id";
+const ATTRIBUTION_KEY = "omd_first_touch";
+
+function getVisitorId() {
+  try {
+    let id = localStorage.getItem(VISITOR_KEY);
+    if (!id) {
+      id = (crypto.randomUUID?.() || String(Date.now()) + Math.random().toString(36).slice(2)).replace(/[^A-Za-z0-9-]/g, "");
+      localStorage.setItem(VISITOR_KEY, id);
+    }
+    return id;
+  } catch {
+    return null; // private mode with storage blocked — just don't track
+  }
+}
+
+// First touch, not last: whatever campaign first brought someone here is
+// what earned the conversion, even if they come back later by typing the
+// URL. Stored once and replayed on every subsequent event.
+function getAttribution() {
+  try {
+    const stored = localStorage.getItem(ATTRIBUTION_KEY);
+    if (stored) return JSON.parse(stored);
+
+    const params = new URLSearchParams(location.search);
+    const referrerHost = document.referrer && !document.referrer.includes(location.host)
+      ? new URL(document.referrer).hostname
+      : null;
+
+    const touch = {
+      source: params.get("utm_source") || referrerHost || "direct",
+      medium: params.get("utm_medium") || (referrerHost ? "referral" : "none"),
+      campaign: params.get("utm_campaign") || null
+    };
+    localStorage.setItem(ATTRIBUTION_KEY, JSON.stringify(touch));
+    return touch;
+  } catch {
+    return { source: "direct", medium: "none", campaign: null };
+  }
+}
+
+function track(step, dealId) {
+  const visitorId = getVisitorId();
+  if (!visitorId) return;
+  const touch = getAttribution();
+  // Deliberately not awaited anywhere it's called: a slow or failing
+  // analytics write must never delay the thing the visitor actually asked
+  // for, least of all the OTP flow.
+  fetch("/api/track", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      visitorId,
+      phone: localStorage.getItem(STORAGE_KEY) || null,
+      step,
+      dealId: dealId || null,
+      source: touch.source,
+      medium: touch.medium,
+      campaign: touch.campaign
+    })
+  }).catch(() => {});
+}
+
 let activeCategory = "All";
 let searchTerm = "";
 let pendingDealId = null;
@@ -501,6 +573,7 @@ function openDealModal(dealId) {
   pendingDealId = dealId;
   const deal = LIVE_DEALS.find(d => d.id === dealId);
   if (!deal) return;
+  track("deal_view", dealId);
 
   document.getElementById("modalEmoji").innerHTML = dealLogoInnerHTML(deal);
   document.getElementById("modalTitle").textContent = deal.title;
@@ -547,6 +620,7 @@ async function submitPhone(e) {
     return;
   }
   input.style.borderColor = "";
+  track("phone_submit", pendingDealId);
 
   const btn = document.getElementById("sendCodeBtn");
   const originalText = btn.textContent;
@@ -624,7 +698,7 @@ async function submitOtp(e) {
       res = await fetch("/api/confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone, code: otp, dealId: pendingDealId })
+        body: JSON.stringify({ phone, code: otp, dealId: pendingDealId, visitorId: getVisitorId() })
       });
     } catch (networkErr) {
       // Backend truly unreachable (e.g. server.js isn't running, or this
@@ -653,6 +727,7 @@ async function submitOtp(e) {
     } else {
       note = "You're registered! (SMS send skipped — check your backend's Twilio config in .env.)";
     }
+    track("otp_verified", pendingDealId);
     const revealData = { code: data.code, link: data.link, message: data.message, note };
 
     if (isFirstRegistration) {
@@ -682,6 +757,7 @@ function applyRevealCodeAndLink(code, link) {
 }
 
 function populateRevealStep(revealData) {
+  track("code_revealed", pendingDealId);
   applyRevealCodeAndLink(revealData.code, revealData.link);
   document.getElementById("revealNote").textContent = revealData.note;
   const preview = document.getElementById("revealSmsPreview");
@@ -827,6 +903,10 @@ function copyCode() {
 
   // Best-effort signal that this code is actually about to get used, not
   // just sent. Doesn't block the clipboard copy or the toast either way.
+  track("code_copied", pendingDealId);
+
+  // Separate from the funnel event above: this one feeds personalization
+  // (markLastEngagementCopied), so it stays keyed on a known phone.
   const phone = localStorage.getItem(STORAGE_KEY);
   if (phone && pendingDealId) {
     fetch("/api/track-copy", {
@@ -837,7 +917,12 @@ function copyCode() {
   }
 }
 
+// The affiliate event — this is the click that can actually earn a
+// commission, and it used to be recorded as if it were a code copy, on the
+// same endpoint and the same flag, so the two were indistinguishable.
 function trackShopClick() {
+  track("outbound_click", pendingDealId);
+
   const phone = localStorage.getItem(STORAGE_KEY);
   if (phone && pendingDealId) {
     fetch("/api/track-copy", {
@@ -891,6 +976,7 @@ async function loadPersonalizationIfRegistered() {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
+  track("page_view");
   loadSurveyTags(); // not needed until first registration's survey step — don't block the grid on it
   renderTasteQuiz(); // works instantly for anonymous visitors, no deals/backend needed
   LIVE_DEALS = await loadDeals();

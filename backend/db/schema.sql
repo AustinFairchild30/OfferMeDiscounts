@@ -69,3 +69,30 @@ ALTER TABLE engagement_events ADD COLUMN IF NOT EXISTS explicit BOOLEAN NOT NULL
 ALTER TABLE engagement_events ADD COLUMN IF NOT EXISTS copied BOOLEAN NOT NULL DEFAULT FALSE;
 
 CREATE INDEX IF NOT EXISTS engagement_events_phone_idx ON engagement_events(phone);
+
+-- Funnel instrumentation. Deliberately a separate table from
+-- engagement_events, which is keyed on a phone number that REFERENCES users
+-- and so can only ever describe someone who already registered — exactly the
+-- people whose behaviour we already understand. The interesting question is
+-- where the other visitors drop out, so this is keyed on an anonymous
+-- visitor_id generated in the browser, with phone backfilled at the moment
+-- someone verifies. That backfill is what turns a stack of anonymous steps
+-- into an attributable conversion.
+CREATE TABLE IF NOT EXISTS funnel_events (
+  id         BIGSERIAL PRIMARY KEY,
+  visitor_id TEXT NOT NULL,
+  phone      TEXT,
+  step       TEXT NOT NULL,
+  deal_id    TEXT,
+  -- First-touch attribution, captured once per visitor and replayed on every
+  -- later event, so a conversion still names the campaign that produced it
+  -- rather than whatever the last referrer happened to be.
+  source     TEXT,
+  medium     TEXT,
+  campaign   TEXT,
+  at         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS funnel_events_step_at_idx ON funnel_events(step, at);
+CREATE INDEX IF NOT EXISTS funnel_events_visitor_idx ON funnel_events(visitor_id);
+CREATE INDEX IF NOT EXISTS funnel_events_campaign_idx ON funnel_events(campaign) WHERE campaign IS NOT NULL;

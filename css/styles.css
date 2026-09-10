@@ -842,3 +842,44 @@ table.admin-table tr:last-child td { border-bottom: none; }
   nav.header-nav { order: 3; width: 100%; justify-content: flex-start; }
   .search-bar { order: 2; max-width: none; flex-basis: 100%; }
 }
+
+/* Funnel report (admin). Bars are proportional to the top of the funnel so
+   the drop-off between steps reads without parsing the numbers. */
+.funnel-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+}
+.funnel-row {
+  display: grid;
+  grid-template-columns: 150px 1fr 190px;
+  gap: 14px;
+  align-items: center;
+}
+.funnel-label { font-size: 13px; font-weight: 600; }
+.funnel-track {
+  background: var(--bg);
+  border-radius: 999px;
+  height: 22px;
+  overflow: hidden;
+}
+.funnel-bar {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--brand-mint-bright), var(--brand-mint));
+}
+.funnel-figures { font-size: 12px; color: var(--ink-soft); text-align: right; }
+.funnel-figures strong {
+  display: block;
+  font-size: 18px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 720px) {
+  .funnel-row { grid-template-columns: 1fr; gap: 4px; }
+  .funnel-figures { text-align: left; }
+}
