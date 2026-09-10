@@ -48,6 +48,37 @@ for (const page of PAGES) {
   app.get(`/${page}.html`, (req, res) => res.sendFile(path.join(SITE_ROOT, `${page}.html`)));
 }
 
+// Short, sayable landing paths for campaigns that can't carry a query string.
+// A connected-TV spot is generally not clickable: the viewer either scans a
+// QR code or reads the URL off the screen and types it. A typed URL arrives
+// with no utm_* parameters at all, so every one of those viewers would be
+// recorded as "direct" and the campaign they came from would get no credit —
+// on the one channel we're about to spend real money on.
+//
+// /tv is short enough to put on screen and still tags the visit. /tv/<slug>
+// gives a spot or flight its own campaign name, so two creatives can be
+// compared: /tv/launch, /tv/holiday. Redirects are 302 on purpose — a 301
+// gets cached by the browser and would pin a viewer to whichever campaign
+// was live the first time they visited.
+const CAMPAIGN_LANDINGS = {
+  tv: { source: "performance_tv", medium: "ctv", campaign: "tv_default" }
+};
+
+for (const [slug, tag] of Object.entries(CAMPAIGN_LANDINGS)) {
+  const target = (campaign) =>
+    `/?utm_source=${tag.source}&utm_medium=${tag.medium}&utm_campaign=${encodeURIComponent(campaign)}`;
+
+  app.get(`/${slug}`, (req, res) => res.redirect(302, target(tag.campaign)));
+
+  app.get(`/${slug}/:campaign`, (req, res) => {
+    const raw = req.params.campaign || "";
+    // Anything else is someone poking at the URL, not a real campaign — fall
+    // back to the default rather than reflecting arbitrary input into the page.
+    const safe = /^[A-Za-z0-9_-]{1,40}$/.test(raw) ? raw.toLowerCase() : tag.campaign;
+    res.redirect(302, target(safe));
+  });
+}
+
 app.use("/api", apiRouter);
 
 app.listen(PORT, () => {

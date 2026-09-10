@@ -30,10 +30,16 @@ function cleanId(value, max = 64) {
   return /^[A-Za-z0-9_.:-]+$/.test(trimmed) ? trimmed : null;
 }
 
-function cleanText(value, max = 120) {
+// UTM values are typed by hand into an ad platform, usually by more than one
+// person over the life of a campaign, so "Performance_TV", "performance_tv"
+// and "performance tv " all turn up meaning the same thing. Stored verbatim
+// they become three separate rows in the campaign report and each one shows a
+// third of the real number. Folding case and spaces here keeps a tagging slip
+// from quietly splitting a campaign's results.
+function cleanTag(value, max = 120) {
   if (typeof value !== "string") return null;
-  const trimmed = value.trim().slice(0, max);
-  return trimmed || null;
+  const normalized = value.trim().toLowerCase().replace(/\s+/g, "_").slice(0, max);
+  return normalized || null;
 }
 
 async function recordEvent({ visitorId, phone, step, dealId, source, medium, campaign }) {
@@ -48,9 +54,9 @@ async function recordEvent({ visitorId, phone, step, dealId, source, medium, cam
       phone || null,
       step,
       cleanId(dealId, 40),
-      cleanText(source),
-      cleanText(medium),
-      cleanText(campaign)
+      cleanTag(source),
+      cleanTag(medium),
+      cleanTag(campaign)
     ]
   );
   return true;
