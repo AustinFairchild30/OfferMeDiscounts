@@ -101,6 +101,48 @@ let PERSONALIZED_SCORES = {};
 // sub-tag interest back to its parent category for personalized ordering).
 let SURVEY_TAGS = {};
 
+// Display-side taxonomy from GET /api/taxonomy: what to call each raw CJ
+// category, and which browse group it belongs to. Empty until loaded, and
+// every lookup falls back to the raw category, so a failed fetch degrades to
+// the old ungrouped bar rather than an empty one.
+let CATEGORY_LABELS = {};
+let CATEGORY_GROUPS = {};
+let GROUP_BY_CATEGORY = {};
+
+async function loadTaxonomy() {
+  try {
+    const res = await fetch("/api/taxonomy");
+    const data = await res.json();
+    CATEGORY_LABELS = data.labels || {};
+    CATEGORY_GROUPS = data.groups || {};
+    GROUP_BY_CATEGORY = {};
+    for (const [group, categories] of Object.entries(CATEGORY_GROUPS)) {
+      for (const category of categories) GROUP_BY_CATEGORY[category] = group;
+    }
+  } catch (err) {
+    console.warn("Could not load taxonomy, showing raw categories:", err.message);
+  }
+}
+
+function groupForCategory(category) {
+  return GROUP_BY_CATEGORY[category] || category;
+}
+
+function labelForCategory(category) {
+  return CATEGORY_LABELS[category] || category;
+}
+
+// Only groups that actually have deals behind them — an empty chip is the
+// problem this grouping exists to solve, so don't reintroduce it.
+function groupsInCatalog() {
+  const counts = new Map();
+  for (const deal of displayableDeals()) {
+    const group = groupForCategory(deal.category);
+    counts.set(group, (counts.get(group) || 0) + 1);
+  }
+  return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+}
+
 async function loadSurveyTags() {
   try {
     const res = await fetch("/api/category-tags");
@@ -355,7 +397,7 @@ function displayableDeals() {
 
 function filteredDeals() {
   return displayableDeals().filter(d => {
-    const matchesCategory = activeCategory === "All" || d.category === activeCategory;
+    const matchesCategory = activeCategory === "All" || groupForCategory(d.category) === activeCategory;
     const term = searchTerm.trim().toLowerCase();
     const matchesSearch =
       !term ||
@@ -388,7 +430,7 @@ function dealCardHTML(d) {
         ${d.discount ? `<div class="badge-discount">${d.discount}</div>` : ""}
       </div>
       <h3>${d.store}</h3>
-      <div class="deal-store">${d.category}</div>
+      <div class="deal-store">${labelForCategory(d.category)}</div>
       ${TASTE_REASONS[d.id] ? `<div class="match-reason">Because you like ${TASTE_REASONS[d.id]}</div>` : ""}
       <div class="card-footer">
         <span>Expires ${formatDate(d.expires)}</span>
@@ -405,11 +447,12 @@ function formatDate(iso) {
 
 function renderCategoryBar() {
   const bar = document.getElementById("categoryBar");
-  const all = ["All", ...LIVE_CATEGORIES];
-  bar.innerHTML = all
+  const groups = groupsInCatalog();
+  const chips = [["All", displayableDeals().length], ...groups];
+  bar.innerHTML = chips
     .map(
-      c =>
-        `<button class="chip ${c === activeCategory ? "active" : ""}" onclick="setCategory('${c}')">${c}</button>`
+      ([name, count]) =>
+        `<button class="chip ${name === activeCategory ? "active" : ""}" onclick="setCategory('${name.replace(/'/g, "\\'")}')">${name} <span class="chip-count">${count}</span></button>`
     )
     .join("");
 }
@@ -979,8 +1022,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   track("page_view");
   loadSurveyTags(); // not needed until first registration's survey step — don't block the grid on it
   renderTasteQuiz(); // works instantly for anonymous visitors, no deals/backend needed
-  LIVE_DEALS = await loadDeals();
-  LIVE_CATEGORIES = getCategories(displayableDeals());
+  const [deals] = await Promise.all([loadDeals(), loadTaxonomy()]);
+  LIVE_DEALS = deals;
+  LIVE_CATEGORIES = getCategories(displayableDeals()); // raw categories — the survey still groups by these
   recomputeTasteScores(); // picks from a previous visit apply before the first paint
   renderCategoryBar();
   renderFeatured();
@@ -988,6 +1032,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   renderTasteResult();
   document.getElementById("dealCountStat").textContent = displayableDeals().length;
   document.getElementById("storeCountStat").textContent = new Set(displayableDeals().map(d => d.store)).size;
-  document.getElementById("categoryCountStat").textContent = LIVE_CATEGORIES.length;
+  document.getElementById("categoryCountStat").textContent = groupsInCatalog().length;
   loadPersonalizationIfRegistered();
 });

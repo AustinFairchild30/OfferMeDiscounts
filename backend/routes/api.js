@@ -11,7 +11,7 @@ const { sendVerificationCode, checkVerificationCode, sendSms } = require("../lib
 const { pickBestDeal, writeSmsCopy, parseInboundIntent, scoreDealsForUser } = require("../lib/claudeClient");
 const { readDeals, getDealById, addDeal, updateDeal, removeDeal, upsertCjDeals, purgeExpiredDeals } = require("../lib/dealsStore");
 const { fetchCjDeals } = require("../lib/cjClient");
-const { CATEGORY_TAGS } = require("../lib/categoryTags");
+const { CATEGORY_TAGS, CATEGORY_LABELS, CATEGORY_GROUPS } = require("../lib/categoryTags");
 const { checkAndPruneDeadLinks } = require("../lib/linkChecker");
 const { getUser, getAllUsers, upsertUser, logEngagement, markLastEngagementDisliked, markLastEngagementCopied } = require("../lib/userStore");
 const { recordEvent, attachPhoneToVisitor, report: funnelReport } = require("../lib/funnelStore");
@@ -127,6 +127,14 @@ router.get("/deals", async (req, res) => {
 // the personalized-scoring match logic instead of a separate client copy.
 router.get("/category-tags", (req, res) => {
   res.json(CATEGORY_TAGS);
+});
+
+// Display-side taxonomy: what to call a category, and which browse group it
+// belongs to. Served separately from /category-tags rather than folded into
+// it, so a browser holding a cached copy of the old app.js doesn't lose the
+// survey's sub-tags while it waits to pick up the new one.
+router.get("/taxonomy", (req, res) => {
+  res.json({ labels: CATEGORY_LABELS, groups: CATEGORY_GROUPS });
 });
 
 // Lets the browse grid put a returning, verified visitor's best-matching

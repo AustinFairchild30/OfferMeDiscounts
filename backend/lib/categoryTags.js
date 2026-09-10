@@ -33,6 +33,56 @@ const CATEGORY_TAGS = {
   Mens: ["Men's Clothing", "Men's Shoes", "Men's Accessories"]
 };
 
+// CJ's category names are its own internal taxonomy, not shopper language:
+// "Computer SW", bare "Mens"/"Womens", and both "Bed & Bath" and "Bath &
+// Body" as separate things no visitor can tell apart. The raw value stays in
+// the database (it's what the advertiser actually filed the link under);
+// this is only what gets shown.
+const CATEGORY_LABELS = {
+  "Computer SW": "Software",
+  "Consumer Electronics": "Electronics",
+  "Home Appliances": "Appliances",
+  "Nutritional Supplements": "Supplements",
+  "Bed & Bath": "Bedding",
+  "Womens": "Women's",
+  "Mens": "Men's",
+  "Babies": "Baby",
+  "Hotel": "Hotels",
+  "Gourmet": "Food & Drink"
+};
+
+// Browse groups for the filter bar. With the catalog spread across 22 raw CJ
+// categories, 13 of them held two deals or fewer — so most of the filter bar
+// led to a page with one card on it, which reads as broken rather than
+// specific. Grouping keeps every chip worth clicking while the catalog is
+// still small; it can be loosened again once individual categories are deep
+// enough to stand on their own.
+const CATEGORY_GROUPS = {
+  "Tech": ["Computer SW", "Consumer Electronics"],
+  "Home": ["Home Appliances", "Furniture", "Bed & Bath"],
+  "Beauty & Health": ["Cosmetics", "Nutritional Supplements", "Wellness", "Bath & Body"],
+  "Sports & Outdoors": ["Sports", "Outdoors", "Golf"],
+  "Fashion": ["Apparel", "Shoes", "Womens", "Mens", "Jewelry"],
+  "Food & Drink": ["Gourmet"],
+  "Travel": ["Hotel"],
+  "Kids & Gifts": ["Babies", "Toys", "Gifts", "Flowers", "Magazines"]
+};
+
+const GROUP_BY_CATEGORY = {};
+for (const [group, categories] of Object.entries(CATEGORY_GROUPS)) {
+  for (const category of categories) GROUP_BY_CATEGORY[category] = group;
+}
+
+// A category CJ invents tomorrow that nobody has grouped yet still needs
+// somewhere to live, or its deals would silently vanish from browse.
+function groupForCategory(category) {
+  return GROUP_BY_CATEGORY[category] || "More";
+}
+
+function labelForCategory(category) {
+  return CATEGORY_LABELS[category] || category;
+}
+
 // True if any of a user's declared interests is either the category itself
 // or one of its sub-tags — so selecting "Skincare" matches a "Cosmetics"
 // deal even though the strings differ.
@@ -44,4 +94,11 @@ function categoryMatchesInterests(category, interestsLower) {
   return tags.some(t => interestsLower.has(t.toLowerCase()));
 }
 
-module.exports = { CATEGORY_TAGS, categoryMatchesInterests };
+module.exports = {
+  CATEGORY_TAGS,
+  CATEGORY_LABELS,
+  CATEGORY_GROUPS,
+  categoryMatchesInterests,
+  groupForCategory,
+  labelForCategory
+};
