@@ -167,4 +167,51 @@ async function report(days = 30) {
   };
 }
 
-module.exports = { recordEvent, attachPhoneToVisitor, report, STEPS };
+// Kept alongside the funnel rather than in its own module: it answers the
+// same question from the other end — the funnel says where people leave,
+// this says what they couldn't find.
+// Deliberately not cleanTag: that folds spaces into underscores, which is
+// right for a utm value and wrong for a sentence someone typed. Lowercasing
+// still earns its place — it groups "Coffee" with "coffee" in the report.
+function cleanQuery(value, max = 120) {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase().replace(/\s+/g, " ").slice(0, max);
+  return normalized || null;
+}
+
+async function recordSearch(query, resultCount, mode) {
+  const text = cleanQuery(query, 120);
+  if (!text) return;
+  await pool.query(
+    "INSERT INTO search_queries (query, result_count, mode) VALUES ($1,$2,$3)",
+    [text, Number(resultCount) || 0, cleanTag(mode, 20)]
+  );
+}
+
+// Splits deliberately on whether we had anything: the misses are the list to
+// act on, the hits just confirm the catalog is pulling its weight.
+async function searchReport(days = 30) {
+  const { rows: misses } = await pool.query(
+    `SELECT query, count(*)::int AS times, max(at) AS last_seen
+       FROM search_queries
+      WHERE result_count = 0 AND at >= now() - ($1 || ' days')::interval
+      GROUP BY query ORDER BY times DESC, last_seen DESC LIMIT 25`,
+    [String(days)]
+  );
+  const { rows: hits } = await pool.query(
+    `SELECT query, count(*)::int AS times, round(avg(result_count))::int AS avg_results
+       FROM search_queries
+      WHERE result_count > 0 AND at >= now() - ($1 || ' days')::interval
+      GROUP BY query ORDER BY times DESC LIMIT 25`,
+    [String(days)]
+  );
+  const { rows: totals } = await pool.query(
+    `SELECT count(*)::int AS searches,
+            count(*) FILTER (WHERE result_count = 0)::int AS empty
+       FROM search_queries WHERE at >= now() - ($1 || ' days')::interval`,
+    [String(days)]
+  );
+  return { misses, hits, ...totals[0] };
+}
+
+module.exports = { recordEvent, attachPhoneToVisitor, report, recordSearch, searchReport, STEPS };

@@ -90,6 +90,14 @@ let LIVE_CATEGORIES = [];
 // re-renders once personalization is known, rather than blocking on it.
 let PERSONALIZED_SCORES = {};
 
+// Results of the last natural-language search: ids in relevance order, or
+// null when no search is active. Kept separate from searchTerm because the
+// term alone can no longer answer "does this deal match" — that judgement
+// now happens server-side.
+let SEARCH_RESULT_IDS = null;
+let SEARCH_MODE = null;
+let SEARCH_PENDING = false;
+
 // Fine-grained interest tags shown per category in the preference survey.
 // "Electronics" alone doesn't tell pickBestDeal whether someone wants
 // headphones or laptops, so the survey collects these specific strings
@@ -396,17 +404,17 @@ function displayableDeals() {
 }
 
 function filteredDeals() {
-  return displayableDeals().filter(d => {
-    const matchesCategory = activeCategory === "All" || groupForCategory(d.category) === activeCategory;
-    const term = searchTerm.trim().toLowerCase();
-    const matchesSearch =
-      !term ||
-      d.title.toLowerCase().includes(term) ||
-      d.brand.toLowerCase().includes(term) ||
-      d.store.toLowerCase().includes(term) ||
-      d.category.toLowerCase().includes(term);
-    return matchesCategory && matchesSearch;
-  });
+  const inCategory = d => activeCategory === "All" || groupForCategory(d.category) === activeCategory;
+
+  // With a search active the server has already decided what matches, and
+  // it returned them ranked — so preserve that order instead of running the
+  // grid's usual shuffle over them. Category still applies on top, so
+  // narrowing a search by group keeps working.
+  if (SEARCH_RESULT_IDS) {
+    const byId = new Map(displayableDeals().map(d => [d.id, d]));
+    return SEARCH_RESULT_IDS.map(id => byId.get(id)).filter(d => d && inCategory(d));
+  }
+  return displayableDeals().filter(inCategory);
 }
 
 // Real brand logos come from a free lookup-by-domain service — falls back
@@ -590,24 +598,94 @@ function rankMatched(deals, scores) {
 
 function renderDeals() {
   const grid = document.getElementById("dealGrid");
-  const deals = orderDeals(filteredDeals());
+  const countEl = document.getElementById("resultCount");
+
+  if (SEARCH_PENDING) {
+    countEl.textContent = "Searching\u2026";
+    grid.innerHTML = `<div class="empty-state"><span class="spinner"></span> Looking for "${escapeHtml(searchTerm)}"\u2026</div>`;
+    return;
+  }
+
+  const filtered = filteredDeals();
+  // Search results arrive already ranked by relevance; re-ordering them by
+  // taste would bury the thing the visitor actually asked for under a brand
+  // they once tapped a heart on.
+  const deals = SEARCH_RESULT_IDS ? filtered : orderDeals(filtered);
   const scores = activeScores();
   const matches = deals.filter(d => (scores[d.id] || 0) > 0).length;
-  document.getElementById("resultCount").textContent =
+
+  countEl.textContent =
     `${deals.length} deal${deals.length === 1 ? "" : "s"}` +
-    (matches ? ` · ${matches} matched to you` : "");
+    (SEARCH_RESULT_IDS ? ` for "${searchTerm}"` : "") +
+    (!SEARCH_RESULT_IDS && matches ? ` \u00b7 ${matches} matched to you` : "");
+
   if (deals.length === 0) {
-    grid.innerHTML = `<div class="empty-state">No deals match "${searchTerm}" ${activeCategory !== "All" ? "in " + activeCategory : ""}. Try another search or category.</div>`;
+    grid.innerHTML = SEARCH_RESULT_IDS
+      // A thin catalog means searches legitimately miss, so say so honestly
+      // and point at the thing that pays off later rather than dead-ending.
+      ? `<div class="empty-state">
+           <strong>Nothing matches "${escapeHtml(searchTerm)}" yet.</strong>
+           <p>We're adding new retailers constantly. Tap what you like above and we'll text you the moment something fits.</p>
+           <button type="button" class="chip" onclick="clearSearch()">Show all deals</button>
+         </div>`
+      : `<div class="empty-state">No deals in ${activeCategory}. <button type="button" class="chip" onclick="setCategory('All')">Show all deals</button></div>`;
     return;
   }
   grid.innerHTML = deals.map(dealCardHTML).join("");
 }
 
-function handleSearch(e) {
-  e.preventDefault();
-  searchTerm = document.getElementById("searchInput").value;
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
+  );
+}
+
+function clearSearch() {
+  searchTerm = "";
+  SEARCH_RESULT_IDS = null;
+  SEARCH_MODE = null;
+  document.getElementById("searchInput").value = "";
   renderDeals();
+}
+
+async function handleSearch(e) {
+  e.preventDefault();
+  searchTerm = document.getElementById("searchInput").value.trim();
   document.getElementById("browse").scrollIntoView({ behavior: "smooth" });
+
+  if (!searchTerm) return clearSearch();
+
+  SEARCH_PENDING = true;
+  renderDeals();
+
+  try {
+    const res = await fetch("/api/deals/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: searchTerm })
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || "Search failed");
+    SEARCH_RESULT_IDS = data.dealIds;
+    SEARCH_MODE = data.mode;
+  } catch (err) {
+    // Never leave the box dead. Fall back to the old substring behaviour in
+    // the browser, which needs no network at all.
+    console.warn("Search unavailable, matching locally instead:", err.message);
+    const term = searchTerm.toLowerCase();
+    SEARCH_RESULT_IDS = displayableDeals()
+      .filter(d =>
+        (d.title || "").toLowerCase().includes(term) ||
+        (d.brand || "").toLowerCase().includes(term) ||
+        (d.store || "").toLowerCase().includes(term) ||
+        (d.category || "").toLowerCase().includes(term)
+      )
+      .map(d => d.id);
+    SEARCH_MODE = "local";
+  } finally {
+    SEARCH_PENDING = false;
+    renderDeals();
+  }
 }
 
 /* ---------------- Deal modal / mock SMS gate ---------------- */

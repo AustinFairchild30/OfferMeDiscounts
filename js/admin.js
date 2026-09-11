@@ -198,6 +198,7 @@ function showToast(msg) {
 document.addEventListener("DOMContentLoaded", () => {
   refreshAll();
   loadFunnel();
+  loadSearches();
 });
 
 /* ---------------- Funnel report ---------------- */
@@ -291,11 +292,70 @@ async function loadFunnel() {
       </table>
     </div>
 
+    <div class="section-head"><h2 style="font-size:16px;">What people searched for</h2></div>
+    <div id="searchPanel"><p style="color:var(--ink-soft);">Loading&hellip;</p></div>
+
     <div class="section-head"><h2 style="font-size:16px;">Deals people acted on</h2></div>
     <div style="overflow-x:auto;">
       <table class="admin-table">
         <thead><tr><th>Store</th><th>Discount</th><th>Views</th><th>Copies</th><th>Outbound</th></tr></thead>
         <tbody>${deals}</tbody>
+      </table>
+    </div>`;
+}
+
+
+async function loadSearches() {
+  const panel = document.getElementById("searchPanel");
+  if (!panel) return;
+  const days = document.getElementById("funnelDays").value;
+
+  let report;
+  try {
+    const res = await fetch(`/api/admin/searches?days=${days}`);
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || "Request failed");
+    report = data.report;
+  } catch (err) {
+    panel.innerHTML = `<p style="color:var(--brand-coral-dark);">Couldn't load searches: ${err.message}</p>`;
+    return;
+  }
+
+  if (!report.searches) {
+    panel.innerHTML = `<p style="color:var(--ink-soft);">No searches recorded in this window yet.</p>`;
+    return;
+  }
+
+  // Misses lead, because they're the actionable half: each one is a visitor
+  // telling you which retailer to go sign.
+  const missRate = Math.round((report.empty / report.searches) * 100);
+  const misses = report.misses.length
+    ? report.misses.map(m => `<tr><td>${m.query}</td><td>${m.times}</td></tr>`).join("")
+    : `<tr><td colspan="2" style="color:var(--ink-soft);">Every search found something.</td></tr>`;
+  const hits = report.hits.length
+    ? report.hits.map(h => `<tr><td>${h.query}</td><td>${h.times}</td><td>${h.avg_results}</td></tr>`).join("")
+    : `<tr><td colspan="3" style="color:var(--ink-soft);">Nothing yet.</td></tr>`;
+
+  panel.innerHTML = `
+    <div class="stat-cards" style="margin-bottom:16px;">
+      <div class="stat-card"><div class="label">Searches</div><div class="value">${report.searches}</div></div>
+      <div class="stat-card"><div class="label">Found nothing</div><div class="value">${report.empty}</div></div>
+      <div class="stat-card"><div class="label">Miss rate</div><div class="value">${missRate}%</div></div>
+    </div>
+    <div style="overflow-x:auto;">
+      <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px;">
+        Searches that returned nothing &mdash; what visitors wanted that you don't stock yet.
+      </p>
+      <table class="admin-table">
+        <thead><tr><th>Search</th><th>Times</th></tr></thead>
+        <tbody>${misses}</tbody>
+      </table>
+    </div>
+    <div style="overflow-x:auto;margin-top:16px;">
+      <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px;">Searches that found something.</p>
+      <table class="admin-table">
+        <thead><tr><th>Search</th><th>Times</th><th>Avg results</th></tr></thead>
+        <tbody>${hits}</tbody>
       </table>
     </div>`;
 }

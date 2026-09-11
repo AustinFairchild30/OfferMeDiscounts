@@ -456,9 +456,30 @@ nav.header-nav a:hover { color: #f3f0f8; }
 
 /* Empty state */
 .empty-state {
+  /* It sits inside .deal-grid, so without this it's squeezed into a single
+     column and reads as a stray card rather than a message about the grid. */
+  grid-column: 1 / -1;
   text-align: center;
   padding: 60px 20px;
   color: var(--ink-soft);
+}
+.empty-state strong {
+  display: block;
+  font-size: 17px;
+  color: var(--ink);
+  margin-bottom: 8px;
+}
+.empty-state p {
+  margin: 0 auto 16px;
+  max-width: 44ch;
+}
+.empty-state .chip { background: var(--card); }
+
+/* The base .spinner is white, for use on the coral button. On the light
+   empty state that's an invisible spinner and a page that looks frozen. */
+.empty-state .spinner {
+  border-color: var(--border);
+  border-top-color: var(--brand-coral);
 }
 
 /* Modal */

@@ -14,7 +14,8 @@ const { fetchCjDeals } = require("../lib/cjClient");
 const { CATEGORY_TAGS, CATEGORY_LABELS, CATEGORY_GROUPS } = require("../lib/categoryTags");
 const { checkAndPruneDeadLinks } = require("../lib/linkChecker");
 const { getUser, getAllUsers, upsertUser, logEngagement, markLastEngagementDisliked, markLastEngagementCopied } = require("../lib/userStore");
-const { recordEvent, attachPhoneToVisitor, report: funnelReport } = require("../lib/funnelStore");
+const { recordEvent, attachPhoneToVisitor, report: funnelReport, recordSearch, searchReport } = require("../lib/funnelStore");
+const { searchDeals, MAX_QUERY_LENGTH } = require("../lib/dealSearch");
 const { COOKIE_NAME, SESSION_TTL_MS, createSessionToken, checkPassword, requireAdmin, requireCronSecret } = require("../lib/adminAuth");
 
 const router = express.Router();
@@ -91,6 +92,19 @@ const trackLimiter = rateLimit({
   handler: rateLimitedJson
 });
 
+// Unlike every other public endpoint, a search costs real money: each one is
+// an Anthropic call. Without a ceiling this is the cheapest way for someone
+// to run up the API bill, so it gets a tighter limit than /api/track, which
+// only costs a row.
+const searchLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: clientIp,
+  handler: rateLimitedJson
+});
+
 router.post("/admin/login", adminLoginLimiter, (req, res) => {
   if (!checkPassword(req.body?.password)) {
     return res.status(401).json({ success: false, error: "Incorrect password." });
@@ -127,6 +141,43 @@ router.get("/deals", async (req, res) => {
 // the personalized-scoring match logic instead of a separate client copy.
 router.get("/category-tags", (req, res) => {
   res.json(CATEGORY_TAGS);
+});
+
+// Natural-language deal search. Returns ids in relevance order rather than
+// deal objects — the browser already has the catalog from GET /api/deals, so
+// sending it back would double the payload for nothing.
+router.post("/deals/search", searchLimiter, async (req, res) => {
+  const query = String(req.body?.query || "").trim().slice(0, MAX_QUERY_LENGTH);
+  if (!query) return res.json({ success: true, dealIds: [], mode: "all" });
+
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    // Search only what the grid can actually show, or it would return ids
+    // the front-end then silently drops, making the count disagree.
+    const deals = (await readDeals()).filter(d => d.discount && d.expires >= today);
+    const { deals: matched, mode } = await searchDeals(deals, query);
+
+    // Fire-and-forget: what people search for is worth keeping, but not at
+    // the cost of making them wait for the answer.
+    recordSearch(query, matched.length, mode).catch(err =>
+      console.error("Search logging error:", err.message)
+    );
+
+    res.json({ success: true, dealIds: matched.map(d => d.id), mode });
+  } catch (err) {
+    console.error("Search error:", err.message);
+    res.status(500).json({ success: false, error: "Search is unavailable right now." });
+  }
+});
+
+router.get("/admin/searches", requireAdmin, async (req, res) => {
+  const days = Math.min(Math.max(parseInt(req.query.days, 10) || 30, 1), 365);
+  try {
+    res.json({ success: true, report: await searchReport(days) });
+  } catch (err) {
+    console.error("Search report error:", err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // Display-side taxonomy: what to call a category, and which browse group it

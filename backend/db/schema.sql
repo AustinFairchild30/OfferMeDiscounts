@@ -96,3 +96,17 @@ CREATE TABLE IF NOT EXISTS funnel_events (
 CREATE INDEX IF NOT EXISTS funnel_events_step_at_idx ON funnel_events(step, at);
 CREATE INDEX IF NOT EXISTS funnel_events_visitor_idx ON funnel_events(visitor_id);
 CREATE INDEX IF NOT EXISTS funnel_events_campaign_idx ON funnel_events(campaign) WHERE campaign IS NOT NULL;
+
+-- What people searched for and whether we had it. Zero-result searches are
+-- the most directly actionable data this site produces right now: with a thin
+-- catalog, "what are visitors asking for that we don't stock" answers which
+-- advertisers to apply to next, rather than guessing from category lists.
+CREATE TABLE IF NOT EXISTS search_queries (
+  id           BIGSERIAL PRIMARY KEY,
+  query        TEXT NOT NULL,
+  result_count INTEGER NOT NULL,
+  mode         TEXT,
+  at           TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS search_queries_at_idx ON search_queries(at);
