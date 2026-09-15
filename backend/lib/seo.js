@@ -9,7 +9,12 @@
 // is the entire business model, and a code sitting in server-rendered markup
 // is a code Google will happily index and hand out for free.
 
-const SITE_ORIGIN = process.env.SITE_ORIGIN || "https://offermediscounts.com";
+// The apex 301-redirects to www, so www is the host that actually returns
+// 200. Canonicals and sitemap entries have to name that host: pointing them
+// at the apex means every sitemap URL is a redirect, and every page's
+// canonical names a URL that redirects away from the page declaring it.
+// Overridable so a future move back to the apex is one env var, not a code change.
+const SITE_ORIGIN = process.env.SITE_ORIGIN || "https://www.offermediscounts.com";
 
 function escapeHtml(str) {
   return String(str == null ? "" : str).replace(
