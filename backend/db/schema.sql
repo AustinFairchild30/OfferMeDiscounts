@@ -153,3 +153,9 @@ CREATE TABLE IF NOT EXISTS impact_excluded_ads (
   impact_ad_id TEXT PRIMARY KEY,
   excluded_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- A ready-to-use logo URL, for sources that serve their own brand logo.
+-- Impact does (behind its API credentials, hence the proxy at /api/logo);
+-- CJ doesn't, so CJ deals leave this null and keep falling back to the
+-- Hunter.io lookup driven by logo_domain.
+ALTER TABLE deals ADD COLUMN IF NOT EXISTS logo_url TEXT;

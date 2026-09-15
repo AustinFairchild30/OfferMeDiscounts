@@ -424,8 +424,17 @@ function filteredDeals() {
 // logo, so a plain onerror handler doesn't catch that case — checking the
 // loaded image's actual size does.
 function dealLogoInnerHTML(d) {
-  if (!d.logo_domain) return d.emoji;
-  return `<img src="https://logos.hunter.io/${d.logo_domain}" alt="" loading="lazy"
+  // logo_url is the brand's own logo, served through our proxy — authoritative
+  // and it doesn't silently degrade. Only Impact deals have one; CJ deals fall
+  // back to the Hunter.io lookup below.
+  const src = d.logo_url || (d.logo_domain ? `https://logos.hunter.io/${d.logo_domain}` : null);
+  if (!src) return d.emoji;
+
+  // The naturalWidth guard exists for Hunter.io specifically: it answers 200
+  // with a ~16px placeholder for brands it doesn't have, so a plain onerror
+  // never fires. Our own proxy 404s instead, but keep the check for both —
+  // a tiny image is the wrong thing to show either way.
+  return `<img src="${src}" alt="" loading="lazy"
     onerror="this.parentElement.innerHTML = '${d.emoji}';"
     onload="if (this.naturalWidth < 32) this.parentElement.innerHTML = '${d.emoji}';" />`;
 }

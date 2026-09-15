@@ -4,7 +4,7 @@
 
 const pool = require("../db/pool");
 
-const COLUMNS = "id, title, brand, store, category, discount, code, description, expires, featured, emoji, link, source, logo_domain, updated_at, impact_ad_id";
+const COLUMNS = "id, title, brand, store, category, discount, code, description, expires, featured, emoji, link, source, logo_domain, logo_url, updated_at, impact_ad_id";
 
 function rowToDeal(row) {
   return {
@@ -139,20 +139,20 @@ async function upsertImpactDeals(impactDeals) {
     if (existingRows[0]) {
       const { rowCount } = await pool.query(
         `UPDATE deals SET title=$2, brand=$3, store=$4, category=$5, discount=$6, code=$7,
-           description=$8, expires=$9, link=$10, logo_domain=$11, updated_at=now()
+           description=$8, expires=$9, link=$10, logo_domain=$11, logo_url=$12, updated_at=now()
          WHERE impact_ad_id=$1
-           AND (title, brand, store, category, discount, code, description, expires, link, logo_domain)
-               IS DISTINCT FROM ($2,$3,$4,$5,$6,$7,$8,$9::date,$10,$11)`,
-        [d.impactAdId, d.title, d.brand, d.store, d.category, d.discount, d.code, d.description, d.expires, d.link, d.logoDomain]
+           AND (title, brand, store, category, discount, code, description, expires, link, logo_domain, logo_url)
+               IS DISTINCT FROM ($2,$3,$4,$5,$6,$7,$8,$9::date,$10,$11,$12)`,
+        [d.impactAdId, d.title, d.brand, d.store, d.category, d.discount, d.code, d.description, d.expires, d.link, d.logoDomain, d.logoUrl]
       );
       if (rowCount) updated++;
       else unchanged++;
     } else {
       const id = await makeDealId();
       await pool.query(
-        `INSERT INTO deals (id, title, brand, store, category, discount, code, description, expires, featured, emoji, link, source, impact_ad_id, logo_domain)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,false,$10,$11,'impact',$12,$13)`,
-        [id, d.title, d.brand, d.store, d.category, d.discount, d.code, d.description, d.expires, d.emoji || null, d.link, d.impactAdId, d.logoDomain]
+        `INSERT INTO deals (id, title, brand, store, category, discount, code, description, expires, featured, emoji, link, source, impact_ad_id, logo_domain, logo_url)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,false,$10,$11,'impact',$12,$13,$14)`,
+        [id, d.title, d.brand, d.store, d.category, d.discount, d.code, d.description, d.expires, d.emoji || null, d.link, d.impactAdId, d.logoDomain, d.logoUrl]
       );
       created++;
     }

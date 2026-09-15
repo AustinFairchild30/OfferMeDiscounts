@@ -124,12 +124,12 @@ function mapAdToDeal(ad, campaignsById) {
     description,
     expires: toIsoDate(ad.EndDate) || NO_EXPIRY,
     link: ad.TrackingLink || null,
-    // Impact does expose the brand's own logo at CampaignLogoUri, which would
-    // beat Hunter.io's guesswork — but that URL needs the API credentials, so
-    // using it means proxying and caching it through our own server. Left as
-    // a follow-up; for now the brand's domain feeds the existing Hunter.io
-    // path exactly as CJ deals do.
     logoDomain: logoDomainFrom(campaign.CampaignUrl || ad.LandingPageUrl),
+    // Impact serves the brand's own logo, but only to an authenticated
+    // caller — so point at our proxy, which holds the credentials and
+    // caches. logoDomain stays set as the fallback if the proxy can't
+    // produce an image.
+    logoUrl: ad.CampaignId ? `/api/logo/impact/${encodeURIComponent(ad.CampaignId)}` : null,
     campaignId: String(ad.CampaignId || ""),
     campaignDescription: campaign.CampaignDescription || ""
   };

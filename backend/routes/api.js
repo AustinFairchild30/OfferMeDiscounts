@@ -333,6 +333,64 @@ router.post("/cron/sync-cj", requireCronSecret, async (req, res) => {
   }
 });
 
+// Impact serves each brand's real logo, but only to an authenticated caller,
+// so the browser can't request it directly. This holds the credentials and
+// caches aggressively: brand logos change roughly never, they're tiny (under
+// 10KB, all of them), and the alternative — Hunter.io — silently returns a
+// placeholder for brands it doesn't know, which is how SoccerGarage's logo
+// vanished between two sessions.
+//
+// Cached in memory rather than in Postgres: the whole working set is a few
+// hundred KB, and a long Cache-Control means Cloudflare and the browser
+// absorb nearly all of the traffic anyway.
+const LOGO_CACHE = new Map();
+const LOGO_TTL_MS = 24 * 60 * 60 * 1000;
+const LOGO_CACHE_MAX = 200;
+
+router.get("/logo/impact/:campaignId", async (req, res) => {
+  const id = String(req.params.campaignId || "");
+  // Campaign ids are numeric; anything else is someone probing, and this
+  // value goes into an outbound URL.
+  if (!/^\d{1,12}$/.test(id)) return res.status(404).end();
+
+  const cached = LOGO_CACHE.get(id);
+  if (cached && Date.now() - cached.at < LOGO_TTL_MS) {
+    res.set("Content-Type", cached.type);
+    res.set("Cache-Control", "public, max-age=86400");
+    return res.send(cached.body);
+  }
+
+  const sid = process.env.IMPACT_ACCOUNT_SID;
+  const token = process.env.IMPACT_AUTH_TOKEN;
+  if (!sid || !token) return res.status(404).end();
+
+  try {
+    const upstream = await fetch(`https://api.impact.com/Mediapartners/${sid}/Campaigns/${id}/Logo`, {
+      headers: { Authorization: "Basic " + Buffer.from(`${sid}:${token}`).toString("base64") },
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!upstream.ok) return res.status(404).end();
+
+    const type = upstream.headers.get("content-type") || "image/png";
+    // Refuse anything that isn't an image — an error page rendered into an
+    // <img> is worse than no logo, because the frontend's fallback never fires.
+    if (!type.startsWith("image/")) return res.status(404).end();
+
+    const body = Buffer.from(await upstream.arrayBuffer());
+    if (LOGO_CACHE.size >= LOGO_CACHE_MAX) LOGO_CACHE.delete(LOGO_CACHE.keys().next().value);
+    LOGO_CACHE.set(id, { body, type, at: Date.now() });
+
+    res.set("Content-Type", type);
+    res.set("Cache-Control", "public, max-age=86400");
+    res.send(body);
+  } catch (err) {
+    // 404 rather than 500: the frontend treats a failed image as "no logo"
+    // and falls back to the emoji, which is the right outcome either way.
+    console.error("Logo proxy error:", err.message);
+    res.status(404).end();
+  }
+});
+
 router.get("/health", (req, res) => {
   res.json({ ok: true });
 });
