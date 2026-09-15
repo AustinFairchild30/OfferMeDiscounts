@@ -51,6 +51,23 @@ for (const page of PAGES) {
   app.get(`/${page}.html`, (req, res) => res.sendFile(path.join(SITE_ROOT, `${page}.html`)));
 }
 
+// Google Search Console's HTML-file verification, driven by an env var so it
+// needs no code change and no deploy of ours to complete. The DNS/TXT method
+// is the better one long-term — a Domain property covers apex and www in a
+// single property — but it needs registrar access, which isn't always the
+// same person who owns the site.
+//
+// Set GOOGLE_VERIFICATION_FILE to the filename Google gives you
+// (e.g. "google1a2b3c4d5e6f.html"). Nothing is read from disk: the content
+// is exactly the one line Google expects, generated from the name.
+app.get("/google:token.html", (req, res, next) => {
+  const expected = process.env.GOOGLE_VERIFICATION_FILE;
+  if (!expected) return next();
+  const requested = `google${req.params.token}.html`;
+  if (requested !== expected.trim()) return next();
+  res.type("text/plain").send(`google-site-verification: ${requested}`);
+});
+
 // --- Crawlable surface -------------------------------------------------
 // Both generated from the live catalog rather than kept as static files, so
 // a store that arrives in tomorrow's sync is crawlable tomorrow instead of

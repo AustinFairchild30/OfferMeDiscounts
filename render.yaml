@@ -33,3 +33,8 @@ services:
         sync: false
       - key: CRON_SECRET
         sync: false
+      # Google Search Console HTML-file verification. Set this to the exact
+      # filename Google gives you (e.g. google1a2b3c4d.html) and the server
+      # serves it — no code change or deploy needed to verify.
+      - key: GOOGLE_VERIFICATION_FILE
+        sync: false
