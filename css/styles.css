@@ -931,3 +931,62 @@ table.admin-table tr:last-child td { border-bottom: none; }
   opacity: 0.6;
   font-variant-numeric: tabular-nums;
 }
+
+/* Server-rendered store pages (/<brand>-coupons). These exist to be crawled,
+   but a visitor arriving from a search result is the highest-intent traffic
+   the site gets, so they have to convert too — hence real deal rows with a
+   single obvious action rather than a wall of text for the crawler. */
+.seo-page { max-width: 820px; padding-top: 28px; padding-bottom: 56px; }
+.seo-crumbs { font-size: 13px; color: var(--ink-soft); margin-bottom: 14px; }
+.seo-crumbs a { color: var(--brand-mint); font-weight: 600; }
+.seo-crumbs span { margin: 0 6px; }
+.seo-page h1 { font-size: 30px; margin: 0 0 12px; }
+.seo-lede { color: var(--ink-soft); max-width: 62ch; margin: 0 0 26px; }
+
+.seo-deal-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.seo-deal {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+}
+.seo-deal-badge {
+  flex: 0 0 auto;
+  min-width: 92px;
+  text-align: center;
+  background: var(--brand-mint-soft);
+  color: var(--brand-mint);
+  font-weight: 800;
+  font-size: 14px;
+  padding: 8px 10px;
+  border-radius: 10px;
+}
+.seo-deal-body { flex: 1; min-width: 0; }
+.seo-deal-body h3 { margin: 0 0 3px; font-size: 15px; }
+.seo-deal-meta { margin: 0; font-size: 12.5px; color: var(--ink-soft); }
+.seo-deal-cta {
+  flex: 0 0 auto;
+  background: var(--brand-coral);
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 9px 18px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.seo-deal-cta:hover { background: var(--brand-coral-dark); }
+
+.seo-note { margin-top: 34px; }
+.seo-note h2 { font-size: 18px; margin: 0 0 8px; }
+.seo-note p { color: var(--ink-soft); max-width: 62ch; margin: 0; }
+.seo-back { margin-top: 30px; font-weight: 600; }
+.seo-back a { color: var(--brand-mint); }
+
+@media (max-width: 620px) {
+  .seo-deal { flex-wrap: wrap; gap: 10px; }
+  .seo-deal-body { flex-basis: 100%; order: 2; }
+  .seo-deal-cta { order: 3; margin-left: auto; }
+}

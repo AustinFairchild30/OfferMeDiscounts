@@ -1112,4 +1112,18 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("storeCountStat").textContent = new Set(displayableDeals().map(d => d.store)).size;
   document.getElementById("categoryCountStat").textContent = groupsInCatalog().length;
   loadPersonalizationIfRegistered();
+  openDealFromUrl();
 });
+
+// Store pages (/<brand>-coupons) link each offer as /?deal=<id>. Someone
+// arriving from a search result has already chosen a specific deal, so open
+// its gate rather than dropping them at the top of a grid to find it again.
+function openDealFromUrl() {
+  const wanted = new URLSearchParams(location.search).get("deal");
+  if (!wanted) return;
+  if (!LIVE_DEALS.some(d => d.id === wanted)) return; // stale or bad link — just show the site
+  openDealModal(wanted);
+  // Drop the parameter so a refresh or a back-navigation doesn't reopen it,
+  // and so the URL people copy is the clean one.
+  history.replaceState(null, "", location.pathname);
+}

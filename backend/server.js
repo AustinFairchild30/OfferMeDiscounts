@@ -4,6 +4,9 @@ const express = require("express");
 const cookieParser = require("cookie-parser");
 const apiRouter = require("./routes/api");
 const { COOKIE_NAME, verifySessionToken } = require("./lib/adminAuth");
+const { readDeals } = require("./lib/dealsStore");
+const { robotsTxt, sitemapXml, findStoreBySlug } = require("./lib/seo");
+const { renderStorePage } = require("./lib/storePage");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -47,6 +50,42 @@ app.get("/", (req, res) => res.sendFile(path.join(SITE_ROOT, "index.html")));
 for (const page of PAGES) {
   app.get(`/${page}.html`, (req, res) => res.sendFile(path.join(SITE_ROOT, `${page}.html`)));
 }
+
+// --- Crawlable surface -------------------------------------------------
+// Both generated from the live catalog rather than kept as static files, so
+// a store that arrives in tomorrow's sync is crawlable tomorrow instead of
+// whenever someone remembers to regenerate a file.
+app.get("/robots.txt", (req, res) => {
+  res.type("text/plain").send(robotsTxt());
+});
+
+app.get("/sitemap.xml", async (req, res) => {
+  try {
+    res.type("application/xml").send(sitemapXml(await readDeals()));
+  } catch (err) {
+    console.error("Sitemap error:", err.message);
+    res.status(500).type("text/plain").send("");
+  }
+});
+
+// Per-store pages: "<brand> coupon code" is the query people actually type,
+// and these are the only pages on the site a crawler can read deals from —
+// everything else renders client-side from /api/deals.
+//
+// Registered LAST among the page routes so it can't shadow a real page:
+// the pattern only matches a path ending in -coupons, and every .html page
+// is already claimed above.
+app.get("/:slug-coupons", async (req, res, next) => {
+  const slug = String(req.params.slug || "");
+  try {
+    const found = findStoreBySlug(await readDeals(), slug);
+    if (!found) return next();
+    res.type("html").send(renderStorePage(found.store, found.deals));
+  } catch (err) {
+    console.error("Store page error:", err.message);
+    next(err);
+  }
+});
 
 // Short, sayable landing paths for campaigns that can't carry a query string.
 // A connected-TV spot is generally not clickable: the viewer either scans a
