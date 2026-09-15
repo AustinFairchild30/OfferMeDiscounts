@@ -990,3 +990,36 @@ table.admin-table tr:last-child td { border-bottom: none; }
   .seo-deal-body { flex-basis: 100%; order: 2; }
   .seo-deal-cta { order: 3; margin-left: auto; }
 }
+
+/* Store directory (/stores) — the crawl hub, but it earns its place for
+   visitors too: at this catalog size "which brands do you even carry" is a
+   fair question and the homepage grid answers it slowly. */
+.store-tiles {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 8px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 10px;
+}
+.store-tile a {
+  display: block;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  height: 100%;
+}
+.store-tile a:hover { border-color: var(--brand-mint-bright); }
+.store-tile-name { display: block; font-weight: 700; font-size: 15px; margin-bottom: 3px; }
+.store-tile-meta { display: block; font-size: 12.5px; color: var(--ink-soft); }
+
+/* Link out of a deal's detail view to everything else that store has. */
+.modal-store-link {
+  display: inline-block;
+  margin-bottom: 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brand-mint);
+}
+.modal-store-link:hover { text-decoration: underline; }

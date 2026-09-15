@@ -697,6 +697,7 @@ function openDealModal(dealId) {
   track("deal_view", dealId);
 
   document.getElementById("modalEmoji").innerHTML = dealLogoInnerHTML(deal);
+  renderModalStoreLink(deal.store);
   document.getElementById("modalTitle").textContent = deal.title;
   document.getElementById("modalStore").textContent = `${deal.store} · Expires ${formatDate(deal.expires)}`;
   document.getElementById("modalDesc").textContent = deal.description;
@@ -717,6 +718,25 @@ function openDealModal(dealId) {
 function closeModal() {
   document.getElementById("modalOverlay").classList.add("hidden");
   pendingDealId = null;
+}
+
+// Mirrors backend/lib/seo.js's slugify — the two must agree or this link
+// 404s. Small enough to duplicate rather than add a fetch on every modal open.
+function storeSlug(name) {
+  return String(name || "")
+    .toLowerCase()
+    .replace(/['\u2019]/g, "")
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function renderModalStoreLink(store) {
+  const el = document.getElementById("modalStoreLink");
+  if (!el) return;
+  const slug = storeSlug(store);
+  if (!slug) { el.innerHTML = ""; return; }
+  el.innerHTML = `<a class="modal-store-link" href="/${slug}-coupons">See all ${store} deals &rarr;</a>`;
 }
 
 function showStep(stepId) {

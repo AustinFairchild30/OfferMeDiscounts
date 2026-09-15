@@ -81,6 +81,7 @@ function sitemapXml(deals) {
   const today = new Date().toISOString().slice(0, 10);
   const urls = [
     { loc: "/", priority: "1.0", changefreq: "daily" },
+    { loc: "/stores", priority: "0.9", changefreq: "daily" },
     { loc: "/about.html", priority: "0.5", changefreq: "monthly" },
     ...[...storesFrom(deals).keys()]
       .sort()

@@ -96,6 +96,7 @@ function renderStorePage(store, deals) {
     <a href="/" class="logo"><span class="logo-mark">%</span>Offer<span class="tag">Me</span>Discounts</a>
     <nav class="header-nav">
       <a href="/#browse">Browse Deals</a>
+      <a href="/stores">Stores</a>
       <a href="/about.html">About</a>
     </nav>
   </div>
@@ -126,13 +127,13 @@ function renderStorePage(store, deals) {
     </p>
   </section>
 
-  <p class="seo-back"><a href="/">&larr; Browse all deals</a></p>
+  <p class="seo-back"><a href="/stores">&larr; All stores</a> &middot; <a href="/">Browse all deals</a></p>
 </main>
 
 <footer class="site-footer">
   <div class="wrap">
     <div>&copy; 2026 OfferMeDiscounts.com</div>
-    <div><a href="/about.html">About</a> &middot; <a href="/terms.html">Terms</a> &middot; <a href="/privacy.html">Privacy</a></div>
+    <div><a href="/stores">All stores</a> &middot; <a href="/about.html">About</a> &middot; <a href="/terms.html">Terms</a> &middot; <a href="/privacy.html">Privacy</a></div>
   </div>
 </footer>
 

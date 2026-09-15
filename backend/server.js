@@ -7,6 +7,7 @@ const { COOKIE_NAME, verifySessionToken } = require("./lib/adminAuth");
 const { readDeals } = require("./lib/dealsStore");
 const { robotsTxt, sitemapXml, findStoreBySlug } = require("./lib/seo");
 const { renderStorePage } = require("./lib/storePage");
+const { renderStoreIndexPage } = require("./lib/storeIndexPage");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -82,6 +83,19 @@ app.get("/sitemap.xml", async (req, res) => {
   } catch (err) {
     console.error("Sitemap error:", err.message);
     res.status(500).type("text/plain").send("");
+  }
+});
+
+// The crawl hub: one server-rendered page linking to every store page, so a
+// crawler can reach all of them from the homepage in two hops. Without it the
+// store pages are orphans — the homepage builds its deal list client-side, so
+// links injected there aren't reliably discovered.
+app.get("/stores", async (req, res, next) => {
+  try {
+    res.type("html").send(renderStoreIndexPage(await readDeals()));
+  } catch (err) {
+    console.error("Store index error:", err.message);
+    next(err);
   }
 });
 
