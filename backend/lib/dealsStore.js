@@ -4,12 +4,15 @@
 
 const pool = require("../db/pool");
 
-const COLUMNS = "id, title, brand, store, category, discount, code, description, expires, featured, emoji, link, source, logo_domain";
+const COLUMNS = "id, title, brand, store, category, discount, code, description, expires, featured, emoji, link, source, logo_domain, updated_at";
 
 function rowToDeal(row) {
   return {
     ...row,
-    expires: row.expires instanceof Date ? row.expires.toISOString().slice(0, 10) : row.expires
+    expires: row.expires instanceof Date ? row.expires.toISOString().slice(0, 10) : row.expires,
+    // Camel-cased for the sitemap's lastMod derivation; the raw column stays
+    // on the object too, so nothing reading row shape directly breaks.
+    updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : row.updated_at
   };
 }
 
@@ -53,7 +56,8 @@ async function updateDeal(id, payload) {
   const merged = { ...existing, ...payload, id };
   const { rows } = await pool.query(
     `UPDATE deals SET title=$2, brand=$3, store=$4, category=$5, discount=$6, code=$7,
-       description=$8, expires=$9, featured=$10, emoji=$11, link=$12, logo_domain=$13
+       description=$8, expires=$9, featured=$10, emoji=$11, link=$12, logo_domain=$13,
+       updated_at=now()
      WHERE id=$1
      RETURNING ${COLUMNS}`,
     [id, merged.title, merged.brand, merged.store, merged.category, merged.discount, merged.code,
@@ -73,6 +77,7 @@ async function upsertCjDeals(cjDeals) {
 
   let created = 0;
   let updated = 0;
+  let unchanged = 0;
   let skipped = 0;
   for (const d of cjDeals) {
     if (excluded.has(d.cjLinkId)) {
@@ -81,13 +86,22 @@ async function upsertCjDeals(cjDeals) {
     }
     const { rows: existingRows } = await pool.query("SELECT id FROM deals WHERE cj_link_id = $1", [d.cjLinkId]);
     if (existingRows[0]) {
-      await pool.query(
+      // The IS DISTINCT FROM guard is the point: this sync runs daily over
+      // every row, so an unconditional UPDATE would stamp updated_at with
+      // today's date on the whole catalog every morning and make the
+      // sitemap's lastmod meaningless. Rows whose values haven't moved
+      // aren't written at all. IS DISTINCT FROM (not <>) so NULLs compare
+      // correctly — a null code staying null must not read as a change.
+      const { rowCount } = await pool.query(
         `UPDATE deals SET title=$2, brand=$3, store=$4, category=$5, discount=$6, code=$7,
-           description=$8, expires=$9, link=$10, logo_domain=$11
-         WHERE cj_link_id=$1`,
+           description=$8, expires=$9, link=$10, logo_domain=$11, updated_at=now()
+         WHERE cj_link_id=$1
+           AND (title, brand, store, category, discount, code, description, expires, link, logo_domain)
+               IS DISTINCT FROM ($2,$3,$4,$5,$6,$7,$8,$9::date,$10,$11)`,
         [d.cjLinkId, d.title, d.brand, d.store, d.category, d.discount, d.code, d.description, d.expires, d.link, d.logoDomain]
       );
-      updated++;
+      if (rowCount) updated++;
+      else unchanged++;
     } else {
       const id = await makeDealId();
       await pool.query(
@@ -98,7 +112,7 @@ async function upsertCjDeals(cjDeals) {
       created++;
     }
   }
-  return { created, updated, skipped, total: cjDeals.length };
+  return { created, updated, unchanged, skipped, total: cjDeals.length };
 }
 
 // Deleting a CJ-sourced deal also excludes its link-id, so it doesn't come

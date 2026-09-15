@@ -110,3 +110,11 @@ CREATE TABLE IF NOT EXISTS search_queries (
 );
 
 CREATE INDEX IF NOT EXISTS search_queries_at_idx ON search_queries(at);
+
+-- Real modification time, so sitemap <lastmod> can be honest. Google only
+-- trusts that field if it's consistently accurate; a sitemap where every URL
+-- claims it changed today, every day, teaches it to ignore the field entirely.
+-- Crucially this is only bumped when a value actually differs (see
+-- upsertCjDeals) — the daily sync touches every row, so an unconditional
+-- update would recreate exactly the problem it's meant to fix.
+ALTER TABLE deals ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();

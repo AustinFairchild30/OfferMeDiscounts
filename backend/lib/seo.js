@@ -77,15 +77,32 @@ function robotsTxt() {
 // Generated from the live catalog rather than kept as a static file, so a
 // store that arrives in tomorrow's CJ sync is in the sitemap tomorrow
 // instead of whenever someone remembers to regenerate it.
+function lastModOf(deals) {
+  const times = deals.map(d => d.updatedAt).filter(Boolean).map(t => new Date(t).getTime());
+  if (!times.length) return null;
+  return new Date(Math.max(...times)).toISOString().slice(0, 10);
+}
+
 function sitemapXml(deals) {
-  const today = new Date().toISOString().slice(0, 10);
+  const byStore = storesFrom(deals);
+  const allLive = [...byStore.values()].flat();
+
   const urls = [
-    { loc: "/", priority: "1.0", changefreq: "daily" },
-    { loc: "/stores", priority: "0.9", changefreq: "daily" },
-    { loc: "/about.html", priority: "0.5", changefreq: "monthly" },
-    ...[...storesFrom(deals).keys()]
+    // The homepage and the hub genuinely change whenever any deal does.
+    { loc: "/", priority: "1.0", changefreq: "daily", lastmod: lastModOf(allLive) },
+    { loc: "/stores", priority: "0.9", changefreq: "daily", lastmod: lastModOf(allLive) },
+    // No lastmod on static pages rather than a made-up one: omitting the
+    // field is honest, and an inaccurate one is worse than none — Google
+    // only trusts lastmod when it's consistently accurate.
+    { loc: "/about.html", priority: "0.5", changefreq: "monthly", lastmod: null },
+    ...[...byStore.keys()]
       .sort()
-      .map(store => ({ loc: storePath(store), priority: "0.8", changefreq: "daily" }))
+      .map(store => ({
+        loc: storePath(store),
+        priority: "0.8",
+        changefreq: "daily",
+        lastmod: lastModOf(byStore.get(store))
+      }))
   ];
 
   return (
@@ -96,7 +113,7 @@ function sitemapXml(deals) {
         u =>
           "  <url>\n" +
           `    <loc>${SITE_ORIGIN}${u.loc}</loc>\n` +
-          `    <lastmod>${today}</lastmod>\n` +
+          (u.lastmod ? `    <lastmod>${u.lastmod}</lastmod>\n` : "") +
           `    <changefreq>${u.changefreq}</changefreq>\n` +
           `    <priority>${u.priority}</priority>\n` +
           "  </url>"
