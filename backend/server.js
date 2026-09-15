@@ -99,6 +99,19 @@ app.get("/stores", async (req, res, next) => {
   }
 });
 
+// A hub at /stores whose children live at the root is a confusing shape, and
+// /stores/<brand>-coupons is the obvious guess — it was the first thing tried
+// by hand, and Search Console rejected an indexing request for it because the
+// URL simply didn't exist. Redirect rather than serve, so there's exactly one
+// canonical URL per store and any mistyped or mis-pasted link still lands.
+// 301 because the root-level URL is the permanent one, and it's what the
+// sitemap and every canonical tag already name.
+app.get("/stores/:slug", (req, res, next) => {
+  const slug = String(req.params.slug || "").replace(/-coupons$/, "");
+  if (!/^[a-z0-9-]{1,80}$/.test(slug)) return next();
+  res.redirect(301, `/${slug}-coupons`);
+});
+
 // Per-store pages: "<brand> coupon code" is the query people actually type,
 // and these are the only pages on the site a crawler can read deals from —
 // everything else renders client-side from /api/deals.
