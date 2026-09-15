@@ -980,16 +980,21 @@ async function submitSurvey(e) {
     .map(s => s.trim())
     .filter(Boolean);
 
+  const email = document.getElementById("surveyEmailInput").value.trim();
+
   const taste = getTasteLikesSplit();
   const interests = [...new Set([...checked, ...taste.interests])];
   const favoriteBrands = [...new Set([...typedBrands, ...taste.favoriteBrands])];
 
-  if (interests.length || favoriteBrands.length) {
+  // Email counts as something worth saving on its own — without it in this
+  // condition, someone who filled in only the address would have it silently
+  // dropped, which is the one field here we explicitly asked for.
+  if (interests.length || favoriteBrands.length || email) {
     try {
       await fetch("/api/preferences", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: pendingSurveyPhone, interests, favoriteBrands })
+        body: JSON.stringify({ phone: pendingSurveyPhone, interests, favoriteBrands, email })
       });
     } catch (err) {
       console.warn("Could not save preferences, continuing anyway:", err.message);

@@ -123,6 +123,13 @@ router.post("/admin/logout", (req, res) => {
   res.json({ success: true });
 });
 
+// Deliberately loose. Real address validation is delivery, not a regex, and
+// a strict pattern mostly rejects valid addresses; this only catches obvious
+// nonsense so the column doesn't fill with junk.
+function isPlausibleEmail(value) {
+  return /^[^\s@]+@[^\s@.]+\.[^\s@]{2,}$/.test(value);
+}
+
 function toE164(raw) {
   const digits = String(raw || "").replace(/\D/g, "");
   if (!digits) return null;
@@ -358,6 +365,16 @@ router.post("/preferences", async (req, res) => {
   }
   if (typeof req.body.marketingConsent === "boolean") {
     patch.optedOut = !req.body.marketingConsent;
+  }
+  // Optional throughout. An empty string clears a previously saved address
+  // (so someone can take it back), but an unparseable one is dropped rather
+  // than rejected — this arrives alongside the preferences someone just
+  // filled in, and failing the whole save over a typo'd address would lose
+  // the survey answers too, which are the more valuable half.
+  if (typeof req.body.email === "string") {
+    const email = req.body.email.trim().slice(0, 254);
+    if (!email) patch.email = null;
+    else if (isPlausibleEmail(email)) patch.email = email.toLowerCase();
   }
   await upsertUser(phone, patch);
   res.json({ success: true });

@@ -12,6 +12,7 @@ function rowToUser(userRow, engagementRows) {
     interests: userRow.interests || [],
     favoriteBrands: userRow.favorite_brands || [],
     optedOut: !!userRow.opted_out,
+    email: userRow.email || null,
     engagement: engagementRows.map(e => ({
       dealId: e.deal_id,
       category: e.category,
@@ -59,18 +60,20 @@ async function upsertUser(phone, patch) {
     interests: existing?.interests ?? [],
     favoriteBrands: existing?.favoriteBrands ?? [],
     optedOut: existing?.optedOut ?? false,
+    email: existing?.email ?? null,
     ...patch
   };
   await pool.query(
-    `INSERT INTO users (phone, registered_at, verified, interests, favorite_brands, opted_out)
-     VALUES ($1,$2,$3,$4,$5,$6)
+    `INSERT INTO users (phone, registered_at, verified, interests, favorite_brands, opted_out, email)
+     VALUES ($1,$2,$3,$4,$5,$6,$7)
      ON CONFLICT (phone) DO UPDATE SET
        registered_at = EXCLUDED.registered_at,
        verified = EXCLUDED.verified,
        interests = EXCLUDED.interests,
        favorite_brands = EXCLUDED.favorite_brands,
-       opted_out = EXCLUDED.opted_out`,
-    [phone, merged.registeredAt, merged.verified, JSON.stringify(merged.interests), JSON.stringify(merged.favoriteBrands), merged.optedOut]
+       opted_out = EXCLUDED.opted_out,
+       email = EXCLUDED.email`,
+    [phone, merged.registeredAt, merged.verified, JSON.stringify(merged.interests), JSON.stringify(merged.favoriteBrands), merged.optedOut, merged.email]
   );
   return getUser(phone);
 }

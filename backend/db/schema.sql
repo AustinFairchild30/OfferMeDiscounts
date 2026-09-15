@@ -118,3 +118,11 @@ CREATE INDEX IF NOT EXISTS search_queries_at_idx ON search_queries(at);
 -- upsertCjDeals) — the daily sync touches every row, so an unconditional
 -- update would recreate exactly the problem it's meant to fix.
 ALTER TABLE deals ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
+
+-- Optional secondary contact, collected at the survey step. The roadmap's V1
+-- spec is "text plus email as secondary engagement", and email was the one
+-- named V1 deliverable never built. Deliberately nullable and never required:
+-- the phone number is the account, and making this mandatory would add
+-- friction to the highest-drop-off point in the funnel to collect a channel
+-- that's strictly a hedge.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;
