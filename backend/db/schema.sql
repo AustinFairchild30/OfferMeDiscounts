@@ -126,3 +126,30 @@ ALTER TABLE deals ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAU
 -- friction to the highest-drop-off point in the funnel to collect a channel
 -- that's strictly a hedge.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;
+
+-- Impact.com is the second affiliate network. Kept as its own id column
+-- rather than reusing cj_link_id so the two networks dedupe and exclude
+-- independently — an Impact ad and a CJ link are different objects even when
+-- they point at the same brand.
+ALTER TABLE deals ADD COLUMN IF NOT EXISTS impact_ad_id TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS deals_impact_ad_id_idx ON deals(impact_ad_id) WHERE impact_ad_id IS NOT NULL;
+
+-- Impact returns no category on an ad or a campaign — unlike CJ, which files
+-- every link under one. Without a category a deal lands in the "More" browse
+-- group, which is the empty-chip problem the grouping exists to prevent. The
+-- brand's own CampaignDescription is descriptive enough to classify from, so
+-- it's done once per advertiser and cached here rather than on every sync.
+CREATE TABLE IF NOT EXISTS advertiser_categories (
+  advertiser  TEXT PRIMARY KEY,
+  category    TEXT NOT NULL,
+  source      TEXT NOT NULL DEFAULT 'llm',
+  decided_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Same role as cj_excluded_links, for the other network: deleting an
+-- Impact-sourced deal from the admin dashboard has to stick across syncs, or
+-- tomorrow's sync just puts it back.
+CREATE TABLE IF NOT EXISTS impact_excluded_ads (
+  impact_ad_id TEXT PRIMARY KEY,
+  excluded_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);

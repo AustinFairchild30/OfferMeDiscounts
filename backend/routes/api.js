@@ -9,8 +9,9 @@ const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
 const twilio = require("twilio");
 const { sendVerificationCode, checkVerificationCode, sendSms } = require("../lib/twilioClient");
 const { pickBestDeal, writeSmsCopy, parseInboundIntent, scoreDealsForUser } = require("../lib/claudeClient");
-const { readDeals, getDealById, addDeal, updateDeal, removeDeal, upsertCjDeals, purgeExpiredDeals } = require("../lib/dealsStore");
+const { readDeals, getDealById, addDeal, updateDeal, removeDeal, upsertCjDeals, upsertImpactDeals, purgeExpiredDeals } = require("../lib/dealsStore");
 const { fetchCjDeals } = require("../lib/cjClient");
+const { fetchImpactDeals, resolveCategories } = require("../lib/impactClient");
 const { CATEGORY_TAGS, CATEGORY_LABELS, CATEGORY_GROUPS } = require("../lib/categoryTags");
 const { checkAndPruneDeadLinks } = require("../lib/linkChecker");
 const { getUser, getAllUsers, upsertUser, logEngagement, markLastEngagementDisliked, markLastEngagementCopied } = require("../lib/userStore");
@@ -276,6 +277,22 @@ router.delete("/deals/:id", requireAdmin, async (req, res) => {
   res.json({ success: true });
 });
 
+// One network failing must not take the other down with it — they're
+// independent sources and a bad token or an outage on one side shouldn't
+// stop the catalog refreshing from the other.
+async function runImpactSync() {
+  if (!process.env.IMPACT_ACCOUNT_SID || !process.env.IMPACT_AUTH_TOKEN) {
+    return { skipped: "not configured" };
+  }
+  try {
+    const deals = await resolveCategories(await fetchImpactDeals());
+    return await upsertImpactDeals(deals);
+  } catch (err) {
+    console.error("Impact sync error:", err.message);
+    return { error: err.message };
+  }
+}
+
 async function runCjSync(res) {
   try {
     const cjDeals = await fetchCjDeals();
@@ -291,6 +308,11 @@ router.post("/deals/sync-cj", requireAdmin, async (req, res) => {
   await runCjSync(res);
 });
 
+router.post("/deals/sync-impact", requireAdmin, async (req, res) => {
+  const result = await runImpactSync();
+  res.json({ success: !result.error, ...result });
+});
+
 // Same sync, plus a dead-link sweep, triggered by a scheduled job instead
 // of the admin dashboard — see .github/workflows/sync-cj.yml. The link
 // check can take a while (network round-trips to every merchant site), so
@@ -299,9 +321,12 @@ router.post("/cron/sync-cj", requireCronSecret, async (req, res) => {
   try {
     const cjDeals = await fetchCjDeals();
     const syncResult = await upsertCjDeals(cjDeals);
+    const impactResult = await runImpactSync();
+    // Link checking runs after both syncs so newly-arrived deals from either
+    // network are covered by the same sweep.
     const linkCheckResult = await checkAndPruneDeadLinks();
     const expiredResult = await purgeExpiredDeals();
-    res.json({ success: true, ...syncResult, linkCheck: linkCheckResult, expired: expiredResult });
+    res.json({ success: true, ...syncResult, impact: impactResult, linkCheck: linkCheckResult, expired: expiredResult });
   } catch (err) {
     console.error("Cron sync error:", err.message);
     res.status(500).json({ success: false, error: err.message });

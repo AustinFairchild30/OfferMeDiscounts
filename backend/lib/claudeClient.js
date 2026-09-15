@@ -212,4 +212,33 @@ function scoreDealsForUser(user, deals) {
   return scores;
 }
 
-module.exports = { pickBestDeal, writeSmsCopy, parseInboundIntent, scoreDealsForUser };
+// Impact.com gives no category on its ads or campaigns, but it does give a
+// real description of what the brand sells. Mapping that onto the existing
+// taxonomy keeps Impact deals in the same browse groups as CJ ones instead
+// of dumping them all into "More". Called once per new advertiser and cached
+// in advertiser_categories — never per deal, never per sync.
+async function classifyAdvertiser(name, description, allowedCategories) {
+  const client = getClient();
+  const msg = await client.messages.create({
+    model: COPY_MODEL,
+    max_tokens: 20,
+    system:
+      "You classify a retailer into exactly one category from a fixed list. Reply with ONLY the category, " +
+      "copied verbatim from the list, and nothing else. Pick the category describing what the retailer " +
+      "mainly sells. If none is a good fit, reply exactly: Other",
+    messages: [
+      {
+        role: "user",
+        content:
+          `Allowed categories:\n${allowedCategories.join("\n")}\n\n` +
+          `Retailer: ${name}\nWhat they sell: ${description || "unknown"}\n\nCategory:`
+      }
+    ]
+  });
+  const answer = (msg.content?.[0]?.text || "").trim();
+  // Only accept a value that's actually in the list — the point is to land in
+  // an existing browse group, so an invented category is worse than "Other".
+  return allowedCategories.find(c => c.toLowerCase() === answer.toLowerCase()) || "Other";
+}
+
+module.exports = { pickBestDeal, writeSmsCopy, parseInboundIntent, scoreDealsForUser, classifyAdvertiser };

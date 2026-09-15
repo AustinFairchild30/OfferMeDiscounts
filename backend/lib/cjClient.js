@@ -344,4 +344,17 @@ async function fetchCjDeals() {
   return capPerAdvertiser(dedupeIdenticalOffers(deals));
 }
 
-module.exports = { fetchCjDeals };
+// Shared with impactClient.js — the two networks differ in how they deliver
+// data but need identical judgement about what counts as a real offer, so
+// the text-extraction and filtering helpers live here and are reused rather
+// than reimplemented per network.
+module.exports = {
+  fetchCjDeals,
+  deriveDiscount,
+  isNonUsTargeted,
+  stripCodeMention,
+  stripHtmlTags,
+  cleanStoreName,
+  dedupeIdenticalOffers,
+  capPerAdvertiser
+};

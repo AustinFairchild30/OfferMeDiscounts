@@ -4,7 +4,7 @@
 
 const pool = require("../db/pool");
 
-const COLUMNS = "id, title, brand, store, category, discount, code, description, expires, featured, emoji, link, source, logo_domain, updated_at";
+const COLUMNS = "id, title, brand, store, category, discount, code, description, expires, featured, emoji, link, source, logo_domain, updated_at, impact_ad_id";
 
 function rowToDeal(row) {
   return {
@@ -118,9 +118,57 @@ async function upsertCjDeals(cjDeals) {
 // Deleting a CJ-sourced deal also excludes its link-id, so it doesn't come
 // back on the next sync — deleting is how an admin says "not a real deal"
 // or "don't want this one," and a resync shouldn't silently override that.
+// Mirrors upsertCjDeals, including the IS DISTINCT FROM guard that keeps
+// updated_at (and therefore sitemap lastmod) honest across a daily sync that
+// touches every row. Keyed on impact_ad_id so the two networks never collide.
+async function upsertImpactDeals(impactDeals) {
+  const { rows: excludedRows } = await pool.query("SELECT impact_ad_id FROM impact_excluded_ads");
+  const excluded = new Set(excludedRows.map(r => r.impact_ad_id));
+
+  let created = 0;
+  let updated = 0;
+  let unchanged = 0;
+  let skipped = 0;
+
+  for (const d of impactDeals) {
+    if (excluded.has(d.impactAdId)) {
+      skipped++;
+      continue;
+    }
+    const { rows: existingRows } = await pool.query("SELECT id FROM deals WHERE impact_ad_id = $1", [d.impactAdId]);
+    if (existingRows[0]) {
+      const { rowCount } = await pool.query(
+        `UPDATE deals SET title=$2, brand=$3, store=$4, category=$5, discount=$6, code=$7,
+           description=$8, expires=$9, link=$10, logo_domain=$11, updated_at=now()
+         WHERE impact_ad_id=$1
+           AND (title, brand, store, category, discount, code, description, expires, link, logo_domain)
+               IS DISTINCT FROM ($2,$3,$4,$5,$6,$7,$8,$9::date,$10,$11)`,
+        [d.impactAdId, d.title, d.brand, d.store, d.category, d.discount, d.code, d.description, d.expires, d.link, d.logoDomain]
+      );
+      if (rowCount) updated++;
+      else unchanged++;
+    } else {
+      const id = await makeDealId();
+      await pool.query(
+        `INSERT INTO deals (id, title, brand, store, category, discount, code, description, expires, featured, emoji, link, source, impact_ad_id, logo_domain)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,false,$10,$11,'impact',$12,$13)`,
+        [id, d.title, d.brand, d.store, d.category, d.discount, d.code, d.description, d.expires, d.emoji || null, d.link, d.impactAdId, d.logoDomain]
+      );
+      created++;
+    }
+  }
+  return { created, updated, unchanged, skipped, total: impactDeals.length };
+}
+
 async function removeDeal(id) {
   const existing = await getDealById(id);
   if (!existing) return false;
+  if (existing.source === "impact" && existing.impact_ad_id) {
+    await pool.query(
+      "INSERT INTO impact_excluded_ads (impact_ad_id) VALUES ($1) ON CONFLICT DO NOTHING",
+      [existing.impact_ad_id]
+    );
+  }
   if (existing.source === "cj") {
     const { rows } = await pool.query("SELECT cj_link_id FROM deals WHERE id = $1", [id]);
     const cjLinkId = rows[0]?.cj_link_id;
@@ -142,4 +190,4 @@ async function purgeExpiredDeals() {
   return { removed: rowCount };
 }
 
-module.exports = { readDeals, getDealById, addDeal, updateDeal, removeDeal, upsertCjDeals, purgeExpiredDeals };
+module.exports = { readDeals, getDealById, addDeal, updateDeal, removeDeal, upsertCjDeals, upsertImpactDeals, purgeExpiredDeals };
