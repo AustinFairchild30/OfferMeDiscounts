@@ -50,9 +50,14 @@
   <div class="wrap">
     <div class="section-head" style="margin-top:0;">
       <h2>What are you into?</h2>
-      <span>No sign-up needed — just tap what you like</span>
+      <span id="tasteProgress"></span>
     </div>
-    <div class="taste-grid" id="tasteGrid"></div>
+    <p class="taste-hint">Swipe right if you like it, left if you don't — no sign-up, and the deals below reorder as you go.</p>
+    <div class="taste-deck" id="tasteDeck"></div>
+    <div class="taste-controls">
+      <button type="button" class="taste-btn nope" onclick="swipeTop(false)" aria-label="Pass">&#10005;</button>
+      <button type="button" class="taste-btn like" onclick="swipeTop(true)" aria-label="Like">&#9829;</button>
+    </div>
     <div id="tasteResult"></div>
   </div>
 </section>

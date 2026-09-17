@@ -221,43 +221,198 @@ function saveTastePrefs(prefs) {
   localStorage.setItem(TASTE_PREFS_KEY, JSON.stringify(prefs));
 }
 
+// --- Swipe deck -----------------------------------------------------------
+// This was a 36-card grid with a ✕ and a ♥ on every card: 72 possible
+// interactions, a 34px-tall tap target well under the 44px touch minimum,
+// and 1,289px of wall before the visitor had done anything. The section
+// promised "just tap what you like" while the interface demanded a decision
+// between two cramped buttons — the instruction and the interaction didn't
+// match, which is what made it feel clunky.
+//
+// One card at a time instead. Swipe right to like, left to pass; the whole
+// card is the target, and there's exactly one decision on screen at a time.
+// A left swipe is still a real negative signal (unlike ignoring a card in a
+// grid), so dislike scoring keeps working.
+
+let TASTE_DECK = [];
+let TASTE_DECK_INDEX = 0;
+const SWIPE_COMMIT_PX = 90;
+
 function tasteCardImgHTML(card) {
   if (card.type === "brand") {
-    return `<img src="https://logos.hunter.io/${card.logoDomain}" alt="" loading="lazy"
-      onload="if (this.naturalWidth < 32) this.closest('.taste-card').remove();"
-      onerror="this.closest('.taste-card').remove();" />`;
+    return `<img src="https://logos.hunter.io/${card.logoDomain}" alt="" draggable="false"
+      onload="if (this.naturalWidth < 32) dropTasteCard('${card.tag}');"
+      onerror="dropTasteCard('${card.tag}');" />`;
   }
-  return `<img src="https://images.unsplash.com/${card.image}?w=500&q=80&fit=crop&auto=format" alt="" loading="lazy" />`;
+  return `<img src="https://images.unsplash.com/${card.image}?w=500&q=80&fit=crop&auto=format" alt="" draggable="false" />`;
+}
+
+// A brand card is mostly the name, which leaves the card looking empty and
+// says nothing about why the brand is worth a swipe. The live count does
+// both. It's omitted when we have no deals for that store (or before the
+// catalog has loaded) rather than showing a zero.
+function tasteCardMetaHTML(card) {
+  if (card.type !== "brand") return "";
+  const n = LIVE_DEALS.filter(d => d.store === card.tag).length;
+  if (!n) return "";
+  return `<span class="brand-meta">${n} deal${n === 1 ? "" : "s"} live</span>`;
+}
+
+// A logo the lookup service doesn't actually have comes back as a tiny
+// placeholder rather than a 404, so the card has to remove itself. In a deck
+// that means pulling it from the queue, not from the DOM.
+function dropTasteCard(tag) {
+  const at = TASTE_DECK.findIndex(c => c.tag === tag);
+  if (at === -1) return;
+  TASTE_DECK.splice(at, 1);
+  if (at < TASTE_DECK_INDEX) TASTE_DECK_INDEX--;
+  renderTasteDeck();
+}
+
+function buildTasteDeck() {
+  const prefs = getTastePrefs();
+  const seen = new Set([...prefs.liked, ...prefs.disliked]);
+  // Already-answered cards don't come back, and the order is shuffled so the
+  // deck doesn't open on the same brand for everyone.
+  TASTE_DECK = shuffleInPlace(TASTE_CARDS.filter(c => !seen.has(c.tag)));
+  TASTE_DECK_INDEX = 0;
 }
 
 function renderTasteQuiz() {
-  const grid = document.getElementById("tasteGrid");
-  if (!grid) return;
-  const prefs = getTastePrefs();
-  grid.innerHTML = TASTE_CARDS.map(card => {
-    const state = prefs.liked.includes(card.tag) ? "liked" : prefs.disliked.includes(card.tag) ? "disliked" : "";
-    return `
-    <div class="taste-card ${card.type} ${state}">
-      ${tasteCardImgHTML(card)}
-      <div class="taste-card-label">${card.label}</div>
-      <div class="taste-card-actions">
-        <button type="button" onclick="tasteReact('${card.tag}', false)" aria-label="Not for me">✕</button>
-        <button type="button" onclick="tasteReact('${card.tag}', true)" aria-label="I like this">♥</button>
-      </div>
-    </div>`;
-  }).join("");
+  if (!document.getElementById("tasteDeck")) return;
+  buildTasteDeck();
+  renderTasteDeck();
 }
 
-function tasteReact(tag, liked) {
+function renderTasteDeck() {
+  const deck = document.getElementById("tasteDeck");
+  if (!deck) return;
+
+  const remaining = TASTE_DECK.slice(TASTE_DECK_INDEX);
+  if (!remaining.length) {
+    deck.innerHTML = `<div class="taste-done">
+      <strong>That's everything.</strong>
+      <p>We've got what we need — your deals are sorted below.</p>
+    </div>`;
+    updateTasteProgress();
+    return;
+  }
+
+  // Only the top three are rendered; the ones behind exist to give the stack
+  // depth, so there's no point building thirty-odd off-screen nodes.
+  // Brand cards put the name in type and the logo alongside it as an accent.
+  // Logos come back anywhere from 32px to 800px, so any size that makes the
+  // small ones legible badly upscales them — letting the name carry the card
+  // is the only treatment that survives that range.
+  deck.innerHTML = remaining.slice(0, 3).map((card, i) => `
+    <div class="taste-card ${card.type}" data-tag="${escapeHtml(card.tag)}" data-depth="${i}"
+         ${i === 0 ? 'tabindex="0" role="group" aria-label="' + escapeHtml(card.label) + '"' : 'aria-hidden="true"'}>
+      ${card.type === "brand"
+        ? `<div class="brand-face">
+             ${tasteCardImgHTML(card)}
+             <span class="brand-name">${escapeHtml(card.label)}</span>
+             ${tasteCardMetaHTML(card)}
+           </div>`
+        : `${tasteCardImgHTML(card)}<div class="taste-card-label">${escapeHtml(card.label)}</div>`}
+      <div class="swipe-badge like">Like</div>
+      <div class="swipe-badge nope">Pass</div>
+    </div>`).reverse().join("");
+
+  const top = deck.querySelector('[data-depth="0"]');
+  if (top) attachSwipe(top);
+  updateTasteProgress();
+}
+
+function updateTasteProgress() {
+  const el = document.getElementById("tasteProgress");
+  if (!el) return;
+  const left = TASTE_DECK.length - TASTE_DECK_INDEX;
+  el.textContent = left ? `${left} to go` : "";
+}
+
+// Pointer events rather than separate mouse/touch handlers — one code path
+// covers finger, trackpad and mouse, and desktop gets the same drag.
+function attachSwipe(card) {
+  let startX = 0, startY = 0, dx = 0, dragging = false, pointerId = null;
+
+  const onDown = e => {
+    if (pointerId !== null) return;
+    pointerId = e.pointerId;
+    dragging = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    card.setPointerCapture(pointerId);
+    card.classList.add("dragging");
+  };
+
+  const onMove = e => {
+    if (!dragging || e.pointerId !== pointerId) return;
+    dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    // A mostly-vertical drag is the page scrolling, not a swipe — let it go.
+    if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 30 && Math.abs(dx) < 20) return;
+    card.style.transform = `translate(${dx}px, ${dy * 0.25}px) rotate(${dx / 18}deg)`;
+    card.style.setProperty("--swipe", String(Math.max(-1, Math.min(1, dx / SWIPE_COMMIT_PX))));
+  };
+
+  const onUp = e => {
+    if (!dragging || e.pointerId !== pointerId) return;
+    dragging = false;
+    card.classList.remove("dragging");
+    try { card.releasePointerCapture(pointerId); } catch {}
+    pointerId = null;
+
+    if (Math.abs(dx) >= SWIPE_COMMIT_PX) {
+      commitSwipe(card, dx > 0);
+    } else {
+      card.style.transform = "";
+      card.style.setProperty("--swipe", "0");
+    }
+    dx = 0;
+  };
+
+  card.addEventListener("pointerdown", onDown);
+  card.addEventListener("pointermove", onMove);
+  card.addEventListener("pointerup", onUp);
+  card.addEventListener("pointercancel", onUp);
+  card.addEventListener("keydown", e => {
+    if (e.key === "ArrowRight") { e.preventDefault(); swipeTop(true); }
+    if (e.key === "ArrowLeft") { e.preventDefault(); swipeTop(false); }
+  });
+}
+
+function commitSwipe(card, liked) {
+  const tag = card.dataset.tag;
+  card.classList.add("gone");
+  card.style.transform = `translateX(${liked ? "140%" : "-140%"}) rotate(${liked ? 25 : -25}deg)`;
+
+  recordTaste(tag, liked);
+  TASTE_DECK_INDEX++;
+
+  // Let the card clear the screen before the stack rebuilds under it.
+  const settle = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 260;
+  setTimeout(() => { renderTasteDeck(); applyTastePrefs(); }, settle);
+}
+
+// The button and keyboard path — same outcome as a drag.
+function swipeTop(liked) {
+  const top = document.querySelector('#tasteDeck [data-depth="0"]');
+  if (top) commitSwipe(top, liked);
+}
+
+// State only. Kept separate from rendering so a swipe can record the answer
+// mid-animation without the deck rebuilding underneath the card in flight.
+function recordTaste(tag, liked) {
   const prefs = getTastePrefs();
   prefs.liked = prefs.liked.filter(t => t !== tag);
   prefs.disliked = prefs.disliked.filter(t => t !== tag);
   (liked ? prefs.liked : prefs.disliked).push(tag);
   saveTastePrefs(prefs);
-  renderTasteQuiz();
-  // The whole point of the quiz is that picking something visibly changes
-  // what you're shown — re-rank the grid immediately rather than banking the
-  // preference for a future session the visitor may never have.
+}
+
+// Still exported for anything that records a preference outside the deck.
+function tasteReact(tag, liked) {
+  recordTaste(tag, liked);
   applyTastePrefs();
 }
 
@@ -357,7 +512,7 @@ function renderTasteResult() {
   if (likes < TASTE_CTA_THRESHOLD) {
     const left = TASTE_CTA_THRESHOLD - likes;
     el.innerHTML = `<div class="taste-result">
-      <span>${likes} picked — tap ${left} more and we'll sort the deals around what you like.</span>
+      <span>${likes} picked — ${left} more and we'll sort the deals around what you like.</span>
     </div>`;
     return;
   }
@@ -1136,6 +1291,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   renderTasteQuiz(); // works instantly for anonymous visitors, no deals/backend needed
   const [deals] = await Promise.all([loadDeals(), loadTaxonomy()]);
   LIVE_DEALS = deals;
+  renderTasteDeck(); // same cards, same position — just fills in the live deal counts
   LIVE_CATEGORIES = getCategories(displayableDeals()); // raw categories — the survey still groups by these
   recomputeTasteScores(); // picks from a previous visit apply before the first paint
   renderCategoryBar();
