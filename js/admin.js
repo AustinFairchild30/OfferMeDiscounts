@@ -188,6 +188,39 @@ async function handleSyncCj(e) {
   }
 }
 
+// The Impact sync had no button: it only ever ran from the nightly cron
+// route, which needs the cron secret. That left no way to run one network
+// without the other, or to see the result of a catalog change before the
+// next morning.
+async function handleSyncImpact(e) {
+  const btn = e?.target;
+  if (btn) btn.disabled = true;
+  try {
+    const res = await fetch("/api/deals/sync-impact", { method: "POST" });
+    if (redirectToAdminLoginIfUnauthorized(res)) return;
+    const data = await res.json();
+    if (!res.ok || !data.success) throw new Error(data.error || "Sync failed");
+    // runImpactSync returns this instead of syncing when the Impact
+    // credentials aren't set on the server, and reports success either way.
+    if (data.skipped === "not configured") {
+      showToast("Impact isn't configured on the server — nothing synced.");
+      return;
+    }
+    await refreshAll();
+    // Pruned is the count this sync deleted — deals the deduper or the
+    // per-advertiser cap dropped. Worth showing: it's the one number here
+    // that goes down, and seeing it as zero is how you'd notice the prune
+    // silently doing nothing.
+    const prunedNote = data.pruned?.removed ? `, ${data.pruned.removed} pruned` : "";
+    const skippedNote = data.skipped ? `, ${data.skipped} skipped (excluded)` : "";
+    showToast(`Synced from Impact — ${data.created} new, ${data.updated} updated${prunedNote}${skippedNote}`);
+  } catch (err) {
+    alert(`Impact sync failed: ${err.message}`);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
 function showToast(msg) {
   const toast = document.getElementById("toast");
   toast.textContent = msg;
