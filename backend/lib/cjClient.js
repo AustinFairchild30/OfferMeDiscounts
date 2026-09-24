@@ -91,12 +91,31 @@ function cleanTitle(rawTitle, store) {
 // Advertisers whose account name can't be turned into a brand name by rule:
 // a domain with no word breaks to recover, or one account covering several
 // brands (where picking which one leads is an editorial call, not a regex).
+//
+// Shared with Impact, which supplies a different flavour of the same problem:
+// its CampaignName is whatever the advertiser typed on signup, so it can be
+// the registered legal entity in its own language, or the same brand running
+// two programs under two spellings. Each entry below was confirmed by
+// following the deal's own tracking link to the destination it lands on —
+// these are not guesses at what the name might mean.
 const STORE_DISPLAY_NAMES = {
   "pinemeadowgolf.com": "Pine Meadow Golf",
   "herbspro.com": "HerbsPro",
   "zinio us": "Zinio",
   "winebasket/babybasket/capalbosonline": "Winebasket",
-  "dream pairs, bruno marc, & nortiv 8 shoes": "Dream Pairs"
+  "dream pairs, bruno marc, & nortiv 8 shoes": "Dream Pairs",
+  // Impact. The first is a legal entity name, not a brand: its links go to
+  // yilitehair.com. The next two are one brand with two Impact programs
+  // (both land on sizeglasses.com), which otherwise shows as two stores and
+  // gets two separate per-advertiser caps.
+  "许昌市永传发制品有限公司": "Yilite Hair",
+  "size glasses": "SizeGlasses",
+  "sizeglasses - creator": "SizeGlasses",
+  // Hyphenated region tag the generic rule deliberately won't touch, since
+  // it only strips a space-separated "US" (never a word ending in "us").
+  "amazon-pioneer camp-us": "Pioneer Camp",
+  // Bare domain whose generic .com strip leaves it lowercase.
+  "lightsaber.com": "Lightsaber"
 };
 
 // CJ's advertiser-name is an account name, not a brand name: it carries the
@@ -270,10 +289,17 @@ function discountRank(deal) {
 // for Guest shoppers" is two real, non-interchangeable offers, not a
 // duplicate. Ties break toward the latest expiry, then the lowest link-id,
 // so the survivor is the same one on every sync.
+// Both tie-breakers below need a per-deal id that's stable between syncs, and
+// the two networks name theirs differently. Falling back to the tracking link
+// keeps the ordering deterministic even for a deal carrying neither.
+function sourceId(deal) {
+  return String(deal.cjLinkId ?? deal.impactAdId ?? deal.link ?? "");
+}
+
 function dedupeIdenticalOffers(deals) {
   const best = new Map();
   for (const deal of deals) {
-    const key = `${deal.store} ${deal.discount || ""} ${deal.code || ""}`;
+    const key = `${deal.store}\u0000${deal.discount || ""}\u0000${deal.code || ""}`;
     const held = best.get(key);
     if (!held) {
       best.set(key, deal);
@@ -281,7 +307,7 @@ function dedupeIdenticalOffers(deals) {
     }
     const better =
       String(deal.expires || "").localeCompare(String(held.expires || "")) ||
-      String(held.cjLinkId).localeCompare(String(deal.cjLinkId));
+      sourceId(held).localeCompare(sourceId(deal));
     if (better > 0) best.set(key, deal);
   }
   return [...best.values()];
@@ -303,7 +329,7 @@ function capPerAdvertiser(deals) {
   for (const list of byStore.values()) {
     list.sort((a, b) =>
       discountRank(b) - discountRank(a) ||
-      String(a.cjLinkId).localeCompare(String(b.cjLinkId))
+      sourceId(a).localeCompare(sourceId(b))
     );
     kept.push(...list.slice(0, MAX_DEALS_PER_ADVERTISER));
   }

@@ -185,9 +185,35 @@ async function removeDeal(id) {
 // with a fresh future expiration on a later sync (a renewed promotion),
 // it should be free to reappear as a new row, not stay permanently
 // excluded the way a curated-out or dead-linked deal does.
+// Neither upsert deletes anything: a row that stops appearing in a sync is
+// left alone, which is the right call for a transient API hiccup and the
+// wrong one for a deal the deduper or the per-advertiser cap has just
+// deliberately dropped. Without this, those rows sit in the catalog forever
+// and the cap only ever governs what gets inserted, never what's already
+// there — so the fix reads as a no-op on a table that's already full.
+//
+// The sync names the ad-ids it kept and everything else Impact-sourced goes.
+// Deleted plainly rather than written to impact_excluded_ads: being capped
+// out is a rotating editorial decision, not the permanent "not a real deal"
+// judgment that deleting from the dashboard records, and a deal that wins a
+// slot back on a later sync should be free to return.
+//
+// Guarded on a non-empty keep list. An empty sync means the API failed or
+// returned nothing, and the right response to that is to change nothing at
+// all — never to empty the catalog.
+async function pruneImpactDeals(keptAdIds) {
+  const ids = [...new Set((keptAdIds || []).filter(Boolean).map(String))];
+  if (!ids.length) return { removed: 0, skipped: "empty sync" };
+  const { rowCount } = await pool.query(
+    "DELETE FROM deals WHERE source = 'impact' AND impact_ad_id <> ALL($1::text[])",
+    [ids]
+  );
+  return { removed: rowCount };
+}
+
 async function purgeExpiredDeals() {
   const { rowCount } = await pool.query("DELETE FROM deals WHERE expires < CURRENT_DATE");
   return { removed: rowCount };
 }
 
-module.exports = { readDeals, getDealById, addDeal, updateDeal, removeDeal, upsertCjDeals, upsertImpactDeals, purgeExpiredDeals };
+module.exports = { readDeals, getDealById, addDeal, updateDeal, removeDeal, upsertCjDeals, upsertImpactDeals, pruneImpactDeals, purgeExpiredDeals };

@@ -21,7 +21,10 @@
 //  - CampaignName is the brand ("Missacc"); AdvertiserName is the legal
 //    entity ("Xi'an Zuan Ge La Fu Network Technology Co., Ltd.").
 
-const { deriveDiscount, isNonUsTargeted, stripCodeMention, stripHtmlTags } = require("./cjClient");
+const {
+  deriveDiscount, isNonUsTargeted, stripCodeMention, stripHtmlTags,
+  cleanStoreName, dedupeIdenticalOffers, capPerAdvertiser
+} = require("./cjClient");
 
 function logoDomainFrom(url) {
   try {
@@ -102,7 +105,10 @@ function discountFor(ad) {
 
 function mapAdToDeal(ad, campaignsById) {
   const campaign = campaignsById.get(String(ad.CampaignId)) || {};
-  const store = (ad.CampaignName || campaign.CampaignName || ad.AdvertiserName || "").trim();
+  // Same treatment CJ's advertiser name gets: the store name is the card
+  // headline, so it has to read as a brand rather than as whatever the
+  // advertiser typed into their Impact account.
+  const store = cleanStoreName((ad.CampaignName || campaign.CampaignName || ad.AdvertiserName || "").trim());
 
   const structuredCode = (ad.DealDefaultPromoCode || "").trim();
   const code = structuredCode || (looksLikeCode(ad.Name) ? String(ad.Name).trim() : null);
@@ -150,7 +156,7 @@ async function fetchImpactDeals() {
 
   const ads = await getAllPages("/Ads?Type=COUPON", "Ads");
 
-  return ads
+  const deals = ads
     .filter(ad => ad && ad.Id && ad.TrackingLink)
     .filter(ad => shipsToUs(campaignsById.get(String(ad.CampaignId))))
     .filter(ad => !isNonUsTargeted(`${ad.Name || ""} ${ad.Description || ""}`))
@@ -159,6 +165,13 @@ async function fetchImpactDeals() {
     // Same bar as CJ: a promotional label alone isn't a deal. Without a real
     // discount or a code there's nothing for a visitor to act on.
     .filter(d => d.discount || d.code);
+
+  // These two ran on the CJ path only, which is how one hair-extensions
+  // advertiser came to own 26 of 60 Impact rows — past a cap of 20 — with
+  // four near-identical "51% off" tiles among them. Impact needs them more
+  // than CJ does, not less: advertisers there register the same offer once
+  // per creative, so identical offers under different ad-ids are the norm.
+  return capPerAdvertiser(dedupeIdenticalOffers(deals));
 }
 
 // --- Category resolution -------------------------------------------------

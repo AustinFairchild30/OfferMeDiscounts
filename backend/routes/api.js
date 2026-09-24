@@ -9,7 +9,7 @@ const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
 const twilio = require("twilio");
 const { sendVerificationCode, checkVerificationCode, sendSms } = require("../lib/twilioClient");
 const { pickBestDeal, writeSmsCopy, parseInboundIntent, scoreDealsForUser } = require("../lib/claudeClient");
-const { readDeals, getDealById, addDeal, updateDeal, removeDeal, upsertCjDeals, upsertImpactDeals, purgeExpiredDeals } = require("../lib/dealsStore");
+const { readDeals, getDealById, addDeal, updateDeal, removeDeal, upsertCjDeals, upsertImpactDeals, pruneImpactDeals, purgeExpiredDeals } = require("../lib/dealsStore");
 const { fetchCjDeals } = require("../lib/cjClient");
 const { fetchImpactDeals, resolveCategories } = require("../lib/impactClient");
 const { CATEGORY_TAGS, CATEGORY_LABELS, CATEGORY_GROUPS } = require("../lib/categoryTags");
@@ -286,7 +286,12 @@ async function runImpactSync() {
   }
   try {
     const deals = await resolveCategories(await fetchImpactDeals());
-    return await upsertImpactDeals(deals);
+    const result = await upsertImpactDeals(deals);
+    // Has to run in the same pass as the upsert: the dedupe and the cap in
+    // fetchImpactDeals only decide what a sync offers, and without this the
+    // rows they dropped would stay in the catalog untouched.
+    const pruned = await pruneImpactDeals(deals.map(d => d.impactAdId));
+    return { ...result, pruned };
   } catch (err) {
     console.error("Impact sync error:", err.message);
     return { error: err.message };
