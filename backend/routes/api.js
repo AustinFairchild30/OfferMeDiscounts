@@ -9,7 +9,7 @@ const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
 const twilio = require("twilio");
 const { sendVerificationCode, checkVerificationCode, sendSms } = require("../lib/twilioClient");
 const { pickBestDeal, writeSmsCopy, parseInboundIntent, scoreDealsForUser } = require("../lib/claudeClient");
-const { readDeals, getDealById, addDeal, updateDeal, removeDeal, upsertCjDeals, upsertImpactDeals, pruneImpactDeals, purgeExpiredDeals } = require("../lib/dealsStore");
+const { readDeals, getDealById, addDeal, updateDeal, removeDeal, upsertCjDeals, upsertImpactDeals, pruneImpactDeals, purgeBlockedDeals, purgeExpiredDeals } = require("../lib/dealsStore");
 const { fetchCjDeals } = require("../lib/cjClient");
 const { fetchImpactDeals, resolveCategories } = require("../lib/impactClient");
 const { CATEGORY_TAGS, CATEGORY_LABELS, CATEGORY_GROUPS } = require("../lib/categoryTags");
@@ -302,7 +302,8 @@ async function runCjSync(res) {
   try {
     const cjDeals = await fetchCjDeals();
     const result = await upsertCjDeals(cjDeals);
-    res.json({ success: true, ...result });
+    const blocked = await purgeBlockedDeals();
+    res.json({ success: true, ...result, blocked });
   } catch (err) {
     console.error("CJ sync error:", err.message);
     res.status(500).json({ success: false, error: err.message });
@@ -330,8 +331,9 @@ router.post("/cron/sync-cj", requireCronSecret, async (req, res) => {
     // Link checking runs after both syncs so newly-arrived deals from either
     // network are covered by the same sweep.
     const linkCheckResult = await checkAndPruneDeadLinks();
+    const blockedResult = await purgeBlockedDeals();
     const expiredResult = await purgeExpiredDeals();
-    res.json({ success: true, ...syncResult, impact: impactResult, linkCheck: linkCheckResult, expired: expiredResult });
+    res.json({ success: true, ...syncResult, impact: impactResult, linkCheck: linkCheckResult, blocked: blockedResult, expired: expiredResult });
   } catch (err) {
     console.error("Cron sync error:", err.message);
     res.status(500).json({ success: false, error: err.message });

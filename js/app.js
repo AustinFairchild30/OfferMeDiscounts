@@ -594,18 +594,83 @@ function dealLogoInnerHTML(d) {
     onload="if (this.naturalWidth < 32) this.parentElement.innerHTML = '${d.emoji}';" />`;
 }
 
+// The card used to show store, category and a discount pill — which never
+// said what the offer actually was. The title does, but affiliate titles are
+// uneven enough that printing them raw would put "Winebasket120x600" (a
+// banner size) on the homepage, so this drops the ones that carry no
+// information the card isn't already showing.
+function offerLine(deal) {
+  let text = (deal.title || "").trim();
+  if (!text) return "";
+
+  // Banner dimensions in the link name, e.g. "Winebasket120x600".
+  if (/\b\d{2,4}\s*[x\u00d7]\s*\d{2,4}\b/.test(text)) return "";
+
+  text = text.replace(/^(service|coupon|deal|offer|promo|sale)\s*[:\-\u2013]\s*/i, "").trim();
+
+  // Strip the store name, the discount itself and connective filler. If
+  // there's essentially nothing left, the title was only restating the two
+  // things already on the card ("Get 20% OFF", "Moresoo Hair Extensions").
+  const residue = text
+    .toLowerCase()
+    .split((deal.store || "").toLowerCase()).join(" ")
+    .replace(/\b(coupon|code|deal|offer|promo|sale|service|off|save|get|at|on|the|your|for|a|an|with|up|to)\b/g, " ")
+    .replace(/[\d%$.,:\-\u2013\u2014]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (residue.length < 4) return "";
+
+  return text;
+}
+
+// Two years out or more means the advertiser set no real end date — Impact's
+// own no-expiry sentinel is 2099-12-31. Printing "Expires Dec 31" for those
+// invents a deadline that isn't real, and on a coupon site a fake deadline is
+// the exact thing that costs you trust the first time someone notices.
+function expiryLabel(iso) {
+  const dt = new Date(iso + "T00:00:00");
+  if (Number.isNaN(dt.getTime())) return null;
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const days = Math.round((dt - today) / 86400000);
+  if (days < 0) return null;
+  if (dt.getFullYear() - today.getFullYear() >= 2) return null;
+
+  if (days === 0) return { text: "Ends today", urgent: true };
+  if (days === 1) return { text: "Ends tomorrow", urgent: true };
+  if (days <= 14) return { text: `Ends in ${days} days`, urgent: true };
+
+  const sameYear = dt.getFullYear() === today.getFullYear();
+  return {
+    text: `Ends ${dt.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      ...(sameYear ? {} : { year: "numeric" })
+    })}`,
+    urgent: false
+  };
+}
+
 function dealCardHTML(d) {
+  const offer = offerLine(d);
+  const expiry = expiryLabel(d.expires);
   return `
     <div class="deal-card" data-id="${d.id}" onclick="openDealModal('${d.id}')">
-      <div class="top-row">
+      <div class="deal-brand">
         <div class="deal-emoji">${dealLogoInnerHTML(d)}</div>
-        ${d.discount ? `<div class="badge-discount">${d.discount}</div>` : ""}
+        <div class="deal-brand-text">
+          <h3>${escapeHtml(d.store)}</h3>
+          <span class="deal-cat">${escapeHtml(labelForCategory(d.category))}</span>
+        </div>
       </div>
-      <h3>${d.store}</h3>
-      <div class="deal-store">${labelForCategory(d.category)}</div>
-      ${TASTE_REASONS[d.id] ? `<div class="match-reason">Because you like ${TASTE_REASONS[d.id]}</div>` : ""}
+      <div class="deal-body">
+        <div class="deal-hero">${escapeHtml(d.discount)}</div>
+        ${offer ? `<p class="deal-offer">${escapeHtml(offer)}</p>` : ""}
+      </div>
+      ${TASTE_REASONS[d.id] ? `<div class="match-reason">Because you like ${escapeHtml(TASTE_REASONS[d.id])}</div>` : ""}
       <div class="card-footer">
-        <span>Expires ${formatDate(d.expires)}</span>
+        <span class="deal-expiry${expiry?.urgent ? " urgent" : ""}">${expiry ? escapeHtml(expiry.text) : ""}</span>
         <button class="get-code-btn" onclick="event.stopPropagation(); openDealModal('${d.id}')">Get Code</button>
       </div>
     </div>
@@ -1199,7 +1264,7 @@ function mockUnlock(phone, deal) {
 function showRevealStep(deal, isFirstUnlock) {
   applyRevealCodeAndLink(deal.code, deal.link);
   document.getElementById("revealNote").textContent = isFirstUnlock
-    ? "You're registered! We'll text you future deals in categories you engage with (per the V2 personalization plan)."
+    ? "You're all set. We'll text you when a new deal lands that fits what you're into."
     : "Welcome back — code unlocked instantly since you're already registered.";
   document.getElementById("revealSmsPreview").style.display = "none";
   document.getElementById("revealMarketingConsentInput").checked = false;

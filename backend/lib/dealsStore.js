@@ -3,6 +3,7 @@
 // names/shapes as before so routes/api.js only needed `await` added.
 
 const pool = require("../db/pool");
+const { isBlockedAdvertiser } = require("./cjClient");
 
 const COLUMNS = "id, title, brand, store, category, discount, code, description, expires, featured, emoji, link, source, logo_domain, logo_url, updated_at, impact_ad_id";
 
@@ -211,9 +212,22 @@ async function pruneImpactDeals(keptAdIds) {
   return { removed: rowCount };
 }
 
+// The blocklist in cjClient keeps a blocked advertiser out of future syncs,
+// but neither upsert deletes, so anything already in the table would stay
+// there — a block that only applies to deals we haven't fetched yet isn't a
+// block. Runs over the whole table on every sync, both networks, so adding a
+// name to the list is all it takes to have it gone the next morning.
+async function purgeBlockedDeals() {
+  const { rows } = await pool.query("SELECT id, store, title, description FROM deals");
+  const blocked = rows.filter(r => isBlockedAdvertiser(r.store, `${r.title || ""} ${r.description || ""}`));
+  if (!blocked.length) return { removed: 0 };
+  await pool.query("DELETE FROM deals WHERE id = ANY($1::text[])", [blocked.map(r => r.id)]);
+  return { removed: blocked.length, stores: [...new Set(blocked.map(r => r.store))] };
+}
+
 async function purgeExpiredDeals() {
   const { rowCount } = await pool.query("DELETE FROM deals WHERE expires < CURRENT_DATE");
   return { removed: rowCount };
 }
 
-module.exports = { readDeals, getDealById, addDeal, updateDeal, removeDeal, upsertCjDeals, upsertImpactDeals, pruneImpactDeals, purgeExpiredDeals };
+module.exports = { readDeals, getDealById, addDeal, updateDeal, removeDeal, upsertCjDeals, upsertImpactDeals, pruneImpactDeals, purgeBlockedDeals, purgeExpiredDeals };

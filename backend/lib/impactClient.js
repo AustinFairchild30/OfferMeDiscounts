@@ -23,7 +23,8 @@
 
 const {
   deriveDiscount, isNonUsTargeted, stripCodeMention, stripHtmlTags,
-  cleanStoreName, dedupeIdenticalOffers, capPerAdvertiser
+  cleanStoreName, dedupeIdenticalOffers, capPerAdvertiser, isBlockedAdvertiser,
+  extractCodeFromText
 } = require("./cjClient");
 
 function logoDomainFrom(url) {
@@ -111,13 +112,19 @@ function mapAdToDeal(ad, campaignsById) {
   const store = cleanStoreName((ad.CampaignName || campaign.CampaignName || ad.AdvertiserName || "").trim());
 
   const structuredCode = (ad.DealDefaultPromoCode || "").trim();
-  const code = structuredCode || (looksLikeCode(ad.Name) ? String(ad.Name).trim() : null);
+  const code = structuredCode
+    || (looksLikeCode(ad.Name) ? String(ad.Name).trim() : null)
+    || extractCodeFromText(`${ad.Name || ""} ${stripHtmlTags(ad.Description || "")}`);
 
-  const description = stripHtmlTags(ad.Description || "");
+  const rawDescription = stripHtmlTags(ad.Description || "");
   // Name is often just the code, which makes a useless title — prefer the
   // description and only fall back to Name when there's nothing else.
-  let title = description || String(ad.Name || "").trim();
+  let title = rawDescription || String(ad.Name || "").trim();
   title = stripCodeMention(title, code);
+  // Stripped separately from the title, and for a different reason: the
+  // description is what the deal modal prints above the phone gate, so a
+  // code left in it is readable without verifying.
+  const description = stripCodeMention(rawDescription, code);
 
   return {
     impactAdId: String(ad.Id),
@@ -164,7 +171,8 @@ async function fetchImpactDeals() {
     .filter(d => d.store)
     // Same bar as CJ: a promotional label alone isn't a deal. Without a real
     // discount or a code there's nothing for a visitor to act on.
-    .filter(d => d.discount || d.code);
+    .filter(d => d.discount || d.code)
+    .filter(d => !isBlockedAdvertiser(d.store, `${d.title} ${d.description}`));
 
   // These two ran on the CJ path only, which is how one hair-extensions
   // advertiser came to own 26 of 60 Impact rows — past a cap of 20 — with

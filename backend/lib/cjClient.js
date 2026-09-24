@@ -146,6 +146,32 @@ function cleanStoreName(store) {
   return cleaned || raw;
 }
 
+// Advertisers we won't carry, whatever the offer is. This isn't a quality
+// bar — it's about what this site does with a deal once it has one.
+//
+// Every offer here can end up in a text message to a verified phone number,
+// matched to that person because we inferred they'd want it. That makes a
+// deal on sexual-health testing categorically different from a deal on
+// vitamins: the match itself asserts something about the recipient, arriving
+// unprompted on their phone where someone else may read it. It's also the
+// same carrier-compliance risk that kept Joylume off the site — the toll-free
+// number is vetted, and SHAFT-adjacent content put through it puts the whole
+// messaging channel at risk, not just the one campaign.
+//
+// Names are matched on the cleaned store name, lowercased and exact. The
+// regex is a second pass over the offer text for the same subject matter
+// arriving under a different advertiser name; it's deliberately narrow,
+// since "wellness" and "health" are ordinary retail categories we do want.
+const BLOCKED_ADVERTISERS = new Set(["stdcheck", "stdcheck.com"]);
+
+const BLOCKED_SUBJECT_MATTER =
+  /\b(std|sti|hiv|herpes|chlamydia|gonorrhea|syphilis)\b|sexual(ly)?[\s-]?(health|transmitted)|\bviagra\b|\bcialis\b|erectile|\bescort\b/i;
+
+function isBlockedAdvertiser(store, text = "") {
+  if (BLOCKED_ADVERTISERS.has(String(store || "").trim().toLowerCase())) return true;
+  return BLOCKED_SUBJECT_MATTER.test(String(text || ""));
+}
+
 // Now-redundant since every deal is US-only (see isNonUsTargeted) — was
 // only ever there to distinguish from the Mexico/Canada/LATAM variants
 // that get filtered out before this point.
@@ -171,7 +197,11 @@ function stripCodeMention(title, code) {
     cleaned = cleaned.replace(bareCode, "").replace(/\s{2,}/g, " ").trim();
     cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
   }
-  return cleaned;
+
+  // Lifting the code out of "…/coupon=SAVE40" or "Code：SAVE40" leaves the
+  // separator dangling on the end. Trailing quotes go too, since the code is
+  // usually the thing that was quoted.
+  return cleaned.replace(/[\s"'“”：:=\-–—,;/|]+$/u, "").trim();
 }
 
 // Real brand logos come from a free lookup-by-domain service (Hunter.io's
@@ -183,6 +213,39 @@ function extractLogoDomain(destination) {
   } catch {
     return null;
   }
+}
+
+// Some advertisers put the code in the offer text and leave the structured
+// coupon-code field empty. That's the worst of both worlds: the code is
+// readable on the card without verifying, AND there's nothing for the reveal
+// step to hand over afterwards, so the gate is bypassed and useless at once.
+// Pulling it into the code field fixes both — stripCodeMention then takes it
+// back out of the text, and the visitor gets a working code for verifying.
+//
+// Deliberately conservative. The captured token has to look like a code
+// (carry a digit, or be written in caps) and not be an ordinary word that
+// happens to follow "code", or this invents codes that don't work.
+const CODE_IN_TEXT = /\b(?:coupon|promo|discount)?\s*code\s*[:=]?\s*["'\u201c]?([A-Za-z0-9][A-Za-z0-9_-]{2,19})\b/i;
+const NOT_A_CODE = new Set([
+  "the", "your", "you", "and", "for", "at", "on", "off", "use", "using", "with",
+  "free", "now", "here", "below", "above", "today", "required", "needed", "applies",
+  "will", "can", "any", "all", "our", "this", "that", "when", "get", "save", "is",
+  "are", "not", "none", "n/a", "na", "auto", "applied", "automatically", "checkout"
+]);
+
+function extractCodeFromText(text) {
+  const match = CODE_IN_TEXT.exec(String(text || ""));
+  if (!match) return null;
+  const token = match[1];
+  if (NOT_A_CODE.has(token.toLowerCase())) return null;
+  // A code is either alphanumeric or shouted. A lowercase all-letters token
+  // after "code" is far more likely to be prose than a real coupon.
+  const hasDigit = /\d/.test(token);
+  const isShouted = token === token.toUpperCase() && /[A-Z]/.test(token);
+  if (!hasDigit && !isShouted) return null;
+  // A bare number is a quantity ("code 15 off"), not a code.
+  if (/^\d+$/.test(token)) return null;
+  return token;
 }
 
 // Some advertisers occasionally leave stray markup in their description
@@ -208,11 +271,18 @@ function pickBestTitle(linkName, description, store) {
 function mapLinkToDeal(link) {
   const rawStore = link["advertiser-name"] || "";
   const store = cleanStoreName(rawStore);
-  const description = stripHtmlTags(link.description || link["ad-content"] || "");
+  const rawDescription = stripHtmlTags(link.description || link["ad-content"] || "");
   const couponCode = link["coupon-code"];
-  const code = couponCode && couponCode.trim() ? couponCode.trim() : null;
+  const code = couponCode && couponCode.trim()
+    ? couponCode.trim()
+    : extractCodeFromText(`${link["link-name"] || ""} ${rawDescription}`);
+  // The description is shown in the deal modal ABOVE the phone gate, so a
+  // code left sitting in it is readable without verifying — which is the
+  // whole gate, bypassed. This ran on the title only; 21 of 80 coded deals
+  // were publishing their code in the description.
+  const description = stripCodeMention(rawDescription, code);
   const promotionType = link["promotion-type"];
-  let title = cleanTitle(pickBestTitle(link["link-name"], description, rawStore), rawStore);
+  let title = cleanTitle(pickBestTitle(link["link-name"], rawDescription, rawStore), rawStore);
   title = stripUsPrefix(title);
   title = stripCodeMention(title, code);
 
@@ -222,7 +292,7 @@ function mapLinkToDeal(link) {
     brand: store,
     store,
     category: link.category || "Other",
-    discount: deriveDiscount(promotionType, title, description),
+    discount: deriveDiscount(promotionType, title, rawDescription),
     code,
     description,
     expires: parseExpires(link["promotion-end-date"]),
@@ -363,7 +433,8 @@ async function fetchCjDeals() {
     // Rain Jackets", "New Minimalist Collection") as promotional even
     // though there's no actual discount or code attached. Without either,
     // it's just a product link, not a deal.
-    .filter(d => d.discount || d.code);
+    .filter(d => d.discount || d.code)
+    .filter(d => !isBlockedAdvertiser(d.store, `${d.title} ${d.description}`));
 
   // ...then collapse links that are the same offer wearing different
   // link-ids, and stop any one advertiser owning the catalog. See above.
@@ -381,6 +452,9 @@ module.exports = {
   stripCodeMention,
   stripHtmlTags,
   cleanStoreName,
+  extractCodeFromText,
   dedupeIdenticalOffers,
-  capPerAdvertiser
+  capPerAdvertiser,
+  isBlockedAdvertiser,
+  BLOCKED_ADVERTISERS
 };
