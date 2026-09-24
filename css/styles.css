@@ -552,6 +552,12 @@ nav.header-nav a:hover { color: #f3f0f8; }
   font-weight: 600;
 }
 .get-code-btn:hover { background: var(--brand-coral-dark); }
+/* 31px tall was under the 44px touch minimum. The whole card opens the deal
+   too, so this was never the only way in — but it's the part that looks like
+   the button, so it should be the size of one. */
+@media (max-width: 720px) {
+  .get-code-btn { min-height: 44px; padding: 8px 18px; }
+}
 
 /* Featured strip */
 .featured-strip .deal-card { border-color: #ffcdd5; }
