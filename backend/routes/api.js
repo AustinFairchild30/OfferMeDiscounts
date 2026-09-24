@@ -18,6 +18,11 @@ const { getUser, getAllUsers, upsertUser, logEngagement, markLastEngagementDisli
 const { recordEvent, attachPhoneToVisitor, report: funnelReport, recordSearch, searchReport } = require("../lib/funnelStore");
 const { searchDeals, MAX_QUERY_LENGTH } = require("../lib/dealSearch");
 const { COOKIE_NAME, SESSION_TTL_MS, createSessionToken, checkPassword, requireAdmin, requireCronSecret } = require("../lib/adminAuth");
+const { verifySessionToken } = require("../lib/adminAuth");
+const {
+  USER_COOKIE_NAME, createUserSessionToken, requireVerifiedUser, userCookieOptions
+} = require("../lib/userSession");
+const { stripCodeMention } = require("../lib/cjClient");
 
 const router = express.Router();
 
@@ -106,6 +111,19 @@ const searchLimiter = rateLimit({
   handler: rateLimitedJson
 });
 
+// A verified visitor is allowed to unlock any deal they like — that's the
+// deal with them. What they're not allowed to do is walk the whole catalog
+// in a loop, which is how a scraper would use one throwaway number to take
+// every code at once. Well above what any real session needs.
+const revealLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 40,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: clientIp,
+  handler: rateLimitedJson
+});
+
 router.post("/admin/login", adminLoginLimiter, (req, res) => {
   if (!checkPassword(req.body?.password)) {
     return res.status(401).json({ success: false, error: "Incorrect password." });
@@ -140,8 +158,43 @@ function toE164(raw) {
   return null;
 }
 
+// The coupon code is the entire product. It leaves the server in exactly two
+// places: the SMS, and /api/deals/:id/code below — both of which require a
+// verified number. Everything else gets the catalog without it.
+//
+// The description is re-stripped here rather than trusted: the sync already
+// removes codes from it, but that only fixes rows a sync has touched since,
+// and "the database is clean" is the wrong thing for the last line of
+// defence to depend on.
+function publicDeal(deal) {
+  const { code, ...rest } = deal;
+  return { ...rest, description: stripCodeMention(rest.description || "", code), title: stripCodeMention(rest.title || "", code) };
+}
+
 router.get("/deals", async (req, res) => {
-  res.json(await readDeals());
+  const deals = await readDeals();
+  // The dashboard edits codes, so an admin session gets the real rows.
+  if (verifySessionToken(req.cookies?.[COOKIE_NAME])) return res.json(deals);
+  res.json(deals.map(publicDeal));
+});
+
+// The gate itself. Reached only after Twilio Verify has confirmed the number
+// behind this session, which is what the SMS step was always supposed to buy
+// and previously didn't.
+router.get("/deals/:id/code", revealLimiter, requireVerifiedUser, async (req, res) => {
+  const deal = await getDealById(req.params.id);
+  if (!deal) return res.status(404).json({ success: false, error: "Deal not found." });
+
+  // Engagement is logged here and not on the client, since this is now the
+  // only place a reveal can actually happen. A returning visitor's unlocks
+  // used to be invisible to personalization entirely.
+  try {
+    await logEngagement(req.verifiedPhone, { dealId: deal.id, category: deal.category, smsSent: false, explicit: true });
+  } catch (err) {
+    console.error("Engagement log failed:", err.message);
+  }
+
+  res.json({ success: true, code: deal.code, link: deal.link });
 });
 
 // Source of truth for the preference survey's fine-grained sub-tags per
@@ -563,6 +616,11 @@ router.post("/confirm", confirmIpLimiter, async (req, res) => {
     }
 
     await logEngagement(phone, { dealId: deal.id, category: deal.category, smsSent, explicit: !!requestedDeal });
+
+    // Twilio just proved this number belongs to whoever is on the other end.
+    // That proof now lives in a signed cookie instead of a localStorage flag,
+    // so the server can answer "is this visitor verified?" on later requests.
+    res.cookie(USER_COOKIE_NAME, createUserSessionToken(phone), userCookieOptions(req));
 
     res.json({ success: true, code: deal.code, link: deal.link, message: smsText, smsSent, optedOut: !!existing?.optedOut });
   } catch (err) {

@@ -1261,14 +1261,62 @@ function mockUnlock(phone, deal) {
   showRevealStep(deal, true);
 }
 
-function showRevealStep(deal, isFirstUnlock) {
-  applyRevealCodeAndLink(deal.code, deal.link);
-  document.getElementById("revealNote").textContent = isFirstUnlock
-    ? "You're all set. We'll text you when a new deal lands that fits what you're into."
-    : "Welcome back — code unlocked instantly since you're already registered.";
+// Asks the server for the code. /api/deals no longer carries one, so this is
+// the only way a returning visitor gets one — and the server decides, based
+// on a signed cookie from their Twilio verification, not on a localStorage
+// flag this page could set for itself.
+async function fetchDealCode(dealId) {
+  let res;
+  try {
+    res = await fetch(`/api/deals/${encodeURIComponent(dealId)}/code`);
+  } catch {
+    showToast("Couldn't reach the server — try again in a moment.");
+    return null;
+  }
+
+  if (res.status === 401) {
+    // We thought they were registered and the server disagrees: cookie
+    // expired, cleared, or this is a different browser. Clearing the local
+    // flag keeps the two from disagreeing again on the next click.
+    localStorage.removeItem(STORAGE_KEY);
+    document.getElementById("phoneInput").value = "";
+    showStep("stepPhone");
+    showToast("Verify your number to unlock this code.");
+    return null;
+  }
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.success) {
+    showToast(data.error || "Couldn't load that code.");
+    return null;
+  }
+  return data;
+}
+
+async function showRevealStep(deal, isFirstUnlock) {
   document.getElementById("revealSmsPreview").style.display = "none";
   document.getElementById("revealMarketingConsentInput").checked = false;
+  document.getElementById("revealNote").textContent = isFirstUnlock
+    ? "You're all set. We'll text you when a new deal lands that fits what you're into."
+    : "Welcome back — unlocked instantly since you're already verified.";
+
+  // The static demo catalog (js/deals-data.js, used only when the backend is
+  // unreachable) carries its own codes. Real deals never do, so they go to
+  // the server. Shown as pending first, so the modal doesn't sit on the
+  // phone form for the length of a round-trip.
+  if (deal.code) {
+    applyRevealCodeAndLink(deal.code, deal.link);
+    showStep("stepReveal");
+    return;
+  }
+
+  applyRevealCodeAndLink("…", deal.link);
   showStep("stepReveal");
+
+  const data = await fetchDealCode(deal.id);
+  if (!data) return; // fetchDealCode has already moved them where they need to go
+  applyRevealCodeAndLink(data.code, data.link || deal.link);
+  track("code_revealed", deal.id);
 }
 
 function copyCode() {
