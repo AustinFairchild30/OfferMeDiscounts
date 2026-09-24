@@ -39,6 +39,22 @@ function storePath(store) {
   return `/${slugify(store)}-coupons`;
 }
 
+// The one rule this whole module exists under is that no coupon code reaches
+// server-rendered HTML. stripCodeMention alone doesn't achieve that: it needs
+// to be told which string is the code, and some advertisers write the code
+// into the title while leaving the structured field empty — so deal.code is
+// null and the title says "52% Off For All Product Code:E52".
+//
+// Those titles were being printed verbatim into store pages and their
+// JSON-LD. Recovering the code from the text first is what makes the strip
+// work on them. Everything that renders a title for a crawler goes through
+// here.
+const { redactCodes } = require("./cjClient");
+
+function safeTitle(deal) {
+  return redactCodes(deal.title, deal.code);
+}
+
 function displayableDeals(deals) {
   const today = new Date().toISOString().slice(0, 10);
   return deals.filter(d => d.discount && d.expires >= today);
@@ -51,6 +67,60 @@ function storesFrom(deals) {
     byStore.get(deal.store).push(deal);
   }
   return byStore;
+}
+
+// A store's category, decided by what most of its deals say rather than by
+// whichever one happens to sort first — advertisers aren't consistent, and
+// the whole point here is to group stores a visitor would consider together.
+function categoryOf(storeDeals) {
+  const counts = new Map();
+  for (const deal of storeDeals) {
+    const key = deal.category || "Other";
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0] || "Other";
+}
+
+// Stores worth linking to from a given store's page. Same category first,
+// since that's the genuinely related set; topped up with the largest other
+// stores when a category is too small to fill the row, because a "related"
+// block with one entry in it looks broken and passes almost nothing on.
+//
+// Sorted by deal count so the links point at the pages with the most to
+// index, and capped so the block stays a recommendation rather than a
+// second copy of /stores on every page.
+function relatedStores(deals, store, limit = 6) {
+  const byStore = storesFrom(deals);
+  const target = byStore.get(store);
+  if (!target) return { stores: [], heading: "" };
+
+  const targetCategory = categoryOf(target);
+  const others = [...byStore.entries()]
+    .filter(([name]) => name !== store)
+    .map(([name, storeDeals]) => ({
+      store: name,
+      count: storeDeals.length,
+      category: categoryOf(storeDeals)
+    }));
+
+  const rank = (a, b) => b.count - a.count || a.store.localeCompare(b.store);
+  const sameCategory = others.filter(o => o.category === targetCategory).sort(rank);
+
+  // Two or more genuine siblings is enough to stand on its own, and the
+  // heading can then name the category. Below that, mixing in the biggest
+  // unrelated stores to pad the row would put Peet's Coffee under "more
+  // stores like this" on a K-beauty page — a claim the page can't support.
+  // Link to them anyway, since the crawl path is worth having, but say what
+  // they actually are.
+  if (sameCategory.length >= 2) {
+    return { stores: sameCategory.slice(0, limit), heading: `More ${targetCategory} stores` };
+  }
+
+  const filler = others.filter(o => o.category !== targetCategory).sort(rank);
+  return {
+    stores: [...sameCategory, ...filler].slice(0, limit),
+    heading: "Other stores on OfferMeDiscounts"
+  };
 }
 
 function findStoreBySlug(deals, slug) {
@@ -130,6 +200,9 @@ module.exports = {
   storePath,
   displayableDeals,
   storesFrom,
+  safeTitle,
+  categoryOf,
+  relatedStores,
   findStoreBySlug,
   robotsTxt,
   sitemapXml

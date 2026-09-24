@@ -1,4 +1,4 @@
-const { escapeHtml, storePath, SITE_ORIGIN } = require("./seo");
+const { escapeHtml, storePath, safeTitle, SITE_ORIGIN } = require("./seo");
 
 const MONTHS = ["January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December"];
@@ -27,7 +27,7 @@ function offerJsonLd(store, deals) {
       position: i + 1,
       item: {
         "@type": "Offer",
-        name: deal.title,
+        name: safeTitle(deal),
         description: deal.discount,
         seller: { "@type": "Organization", name: store },
         availabilityEnds: deal.expires,
@@ -39,7 +39,7 @@ function offerJsonLd(store, deals) {
 
 function dealRow(deal) {
   const badge = escapeHtml(deal.discount);
-  const title = escapeHtml(deal.title);
+  const title = escapeHtml(safeTitle(deal));
   // The "Get Code" link carries the deal id so the homepage can open straight
   // to this offer's gate. Never the code itself.
   return `
@@ -57,7 +57,27 @@ function dealRow(deal) {
     </li>`;
 }
 
-function renderStorePage(store, deals) {
+// Every store page previously linked up to /stores and back to the homepage
+// and nowhere else, so the 42 store pages formed a flat hub-and-spoke with no
+// edges between the spokes. Crawlers reach a page and find nothing new to
+// follow, and none of these pages passes any signal to a sibling that a
+// visitor would plausibly want next.
+function relatedBlock(related) {
+  const { stores = [], heading = "" } = related || {};
+  if (!stores.length) return "";
+  const links = stores
+    .map(r => `<li><a href="${storePath(r.store)}">${escapeHtml(r.store)} coupons</a> <span>${r.count} ${r.count === 1 ? "offer" : "offers"}</span></li>`)
+    .join("\n      ");
+  return `
+  <section class="seo-related">
+    <h2>${escapeHtml(heading)}</h2>
+    <ul class="seo-related-list">
+      ${links}
+    </ul>
+  </section>`;
+}
+
+function renderStorePage(store, deals, related = null) {
   const monthYear = currentMonthYear();
   const count = deals.length;
   const best = deals
@@ -126,6 +146,8 @@ function renderStorePage(store, deals) {
       scraped and burnt out. No account, and you can reply STOP at any time.
     </p>
   </section>
+
+${relatedBlock(related)}
 
   <p class="seo-back"><a href="/stores">&larr; All stores</a> &middot; <a href="/">Browse all deals</a></p>
 </main>

@@ -1,12 +1,14 @@
 require("dotenv").config();
+const fs = require("fs");
 const path = require("path");
 const express = require("express");
 const cookieParser = require("cookie-parser");
 const apiRouter = require("./routes/api");
 const { COOKIE_NAME, verifySessionToken } = require("./lib/adminAuth");
 const { readDeals } = require("./lib/dealsStore");
-const { robotsTxt, sitemapXml, findStoreBySlug } = require("./lib/seo");
+const { robotsTxt, sitemapXml, findStoreBySlug, relatedStores } = require("./lib/seo");
 const { renderStorePage } = require("./lib/storePage");
+const { injectHomeGrid } = require("./lib/homePage");
 const { renderStoreIndexPage } = require("./lib/storeIndexPage");
 
 const app = express();
@@ -47,7 +49,27 @@ const PAGES = ["index", "about", "admin", "admin-login", "opt-in-proof", "privac
 app.use("/css", express.static(path.join(SITE_ROOT, "css")));
 app.use("/js", express.static(path.join(SITE_ROOT, "js")));
 
-app.get("/", (req, res) => res.sendFile(path.join(SITE_ROOT, "index.html")));
+// index.html with the deal grid filled in server-side — see lib/homePage.js.
+// Read from disk once: a deploy restarts the process, which is the only way
+// the file changes in production.
+let INDEX_HTML = null;
+function indexHtml() {
+  if (INDEX_HTML === null) INDEX_HTML = fs.readFileSync(path.join(SITE_ROOT, "index.html"), "utf8");
+  return INDEX_HTML;
+}
+
+app.get("/", async (req, res) => {
+  // The homepage must not depend on the database being reachable. If the
+  // deals query fails, serve the same client-rendered page as before rather
+  // than an error — the visitor gets a working site, and only the crawler
+  // loses out for that request.
+  try {
+    res.type("html").send(injectHomeGrid(indexHtml(), await readDeals()));
+  } catch (err) {
+    console.error("Home render error:", err.message);
+    res.sendFile(path.join(SITE_ROOT, "index.html"));
+  }
+});
 for (const page of PAGES) {
   app.get(`/${page}.html`, (req, res) => res.sendFile(path.join(SITE_ROOT, `${page}.html`)));
 }
@@ -122,9 +144,10 @@ app.get("/stores/:slug", (req, res, next) => {
 app.get("/:slug-coupons", async (req, res, next) => {
   const slug = String(req.params.slug || "");
   try {
-    const found = findStoreBySlug(await readDeals(), slug);
+    const allDeals = await readDeals();
+    const found = findStoreBySlug(allDeals, slug);
     if (!found) return next();
-    res.type("html").send(renderStorePage(found.store, found.deals));
+    res.type("html").send(renderStorePage(found.store, found.deals, relatedStores(allDeals, found.store)));
   } catch (err) {
     console.error("Store page error:", err.message);
     next(err);

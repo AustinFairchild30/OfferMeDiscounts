@@ -1093,6 +1093,33 @@ table.admin-table tr:last-child td { border-bottom: none; }
 .seo-back { margin-top: 30px; font-weight: 600; }
 .seo-back a { color: var(--brand-mint); }
 
+/* Sibling links between store pages. Laid out as a wrapping row rather than
+   a list so it reads as a set of suggestions at the end of the page, not as
+   a second navigation block competing with the deals above it. */
+.seo-related { margin-top: 34px; }
+.seo-related h2 { font-size: 18px; margin: 0 0 12px; }
+.seo-related-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.seo-related-list li {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 13px;
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+}
+.seo-related-list li:hover { border-color: var(--brand-coral); }
+.seo-related-list a { font-weight: 600; }
+.seo-related-list span { color: var(--ink-soft); font-size: 12px; }
+
 @media (max-width: 620px) {
   .seo-deal { flex-wrap: wrap; gap: 10px; }
   .seo-deal-body { flex-basis: 100%; order: 2; }

@@ -248,6 +248,33 @@ function extractCodeFromText(text) {
   return token;
 }
 
+// Everything that shows advertiser text to someone who hasn't verified goes
+// through here: server-rendered pages, their JSON-LD, and the public catalog.
+//
+// stripCodeMention alone isn't enough, because it has to be told which string
+// is the code. Two failure modes get past it: the structured field is empty
+// and the code lives only in the text, and — worse — the structured field
+// holds a DIFFERENT code than the text does (one deal carries "AFF51" while
+// its title reads "Use Code:E51"). So strip the known code first, then keep
+// pulling whatever still looks like a code out of the text until nothing
+// does. Bounded, and stops early if a pass changes nothing, so a string
+// extractCodeFromText keeps matching but stripCodeMention can't remove
+// can't spin here.
+function redactCodes(text, knownCode) {
+  let out = String(text || "");
+  if (!out) return out;
+  if (knownCode) out = stripCodeMention(out, knownCode);
+
+  for (let i = 0; i < 4; i++) {
+    const found = extractCodeFromText(out);
+    if (!found) break;
+    const next = stripCodeMention(out, found);
+    if (next === out) break;
+    out = next;
+  }
+  return out;
+}
+
 // Some advertisers occasionally leave stray markup in their description
 // text (CJ's own feed, not us rendering anything) — e.g. a real Herbspro
 // entry whose description was literally "<link>Special Affiliate
@@ -453,6 +480,7 @@ module.exports = {
   stripHtmlTags,
   cleanStoreName,
   extractCodeFromText,
+  redactCodes,
   dedupeIdenticalOffers,
   capPerAdvertiser,
   isBlockedAdvertiser,

@@ -22,7 +22,7 @@ const { verifySessionToken } = require("../lib/adminAuth");
 const {
   USER_COOKIE_NAME, createUserSessionToken, requireVerifiedUser, userCookieOptions
 } = require("../lib/userSession");
-const { stripCodeMention } = require("../lib/cjClient");
+const { redactCodes } = require("../lib/cjClient");
 
 const router = express.Router();
 
@@ -168,7 +168,7 @@ function toE164(raw) {
 // defence to depend on.
 function publicDeal(deal) {
   const { code, ...rest } = deal;
-  return { ...rest, description: stripCodeMention(rest.description || "", code), title: stripCodeMention(rest.title || "", code) };
+  return { ...rest, description: redactCodes(rest.description, code), title: redactCodes(rest.title, code) };
 }
 
 router.get("/deals", async (req, res) => {
@@ -219,10 +219,14 @@ router.post("/deals/search", searchLimiter, async (req, res) => {
     const { deals: matched, mode } = await searchDeals(deals, query);
 
     // Fire-and-forget: what people search for is worth keeping, but not at
-    // the cost of making them wait for the answer.
-    recordSearch(query, matched.length, mode).catch(err =>
-      console.error("Search logging error:", err.message)
-    );
+    // the cost of making them wait for the answer. Internal sessions are
+    // excluded for the same reason they're excluded from the funnel — the
+    // search log is meant to show what real visitors couldn't find.
+    if (!isInternal(req)) {
+      recordSearch(query, matched.length, mode).catch(err =>
+        console.error("Search logging error:", err.message)
+      );
+    }
 
     res.json({ success: true, dealIds: matched.map(d => d.id), mode });
   } catch (err) {
@@ -459,7 +463,49 @@ router.get("/health", (req, res) => {
 // answers 200 and never blocks or surfaces an error to the visitor —
 // analytics failing is not a reason for the site to misbehave. Invalid steps
 // and malformed visitor ids are dropped silently by funnelStore.
+// Your own visits, and any automated testing, otherwise land in the same
+// funnel the launch gets judged on — at this volume a handful of them is the
+// difference between "nobody converts" and "nobody has tried yet".
+//
+// A cookie rather than a localStorage flag on purpose: testing routinely
+// clears storage (that's how you get back to a first-time view), which would
+// silently switch tracking back on at the exact moment you're generating the
+// most noise. httpOnly so the page can't clear it either.
+const INTERNAL_COOKIE = "omd_internal";
+const INTERNAL_TTL_MS = 1000 * 60 * 60 * 24 * 730; // 2 years
+
+function isInternal(req) {
+  return req.cookies?.[INTERNAL_COOKIE] === "1";
+}
+
+router.get("/internal-traffic", (req, res) => {
+  const on = req.query.on !== "0";
+  if (on) {
+    res.cookie(INTERNAL_COOKIE, "1", {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: req.secure || req.headers["x-forwarded-proto"] === "https",
+      maxAge: INTERNAL_TTL_MS
+    });
+  } else {
+    res.clearCookie(INTERNAL_COOKIE);
+  }
+  res.type("html").send(
+    `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" />` +
+    `<meta name="robots" content="noindex" /><title>Internal traffic</title>` +
+    `<style>body{font-family:system-ui,sans-serif;margin:60px auto;max-width:34em;padding:0 20px;line-height:1.5}` +
+    `code{background:#f1eff5;padding:2px 6px;border-radius:4px}</style></head><body>` +
+    `<h1>Internal traffic: ${on ? "ON" : "OFF"}</h1>` +
+    `<p>${on
+      ? "This browser's visits are no longer counted in the funnel or the search log. It stays off until you turn it back on, or clear cookies."
+      : "This browser is being counted again, like any other visitor."}</p>` +
+    `<p><a href="/api/internal-traffic?on=${on ? "0" : "1"}">Turn it ${on ? "back on" : "off"}</a> &middot; <a href="/">Back to the site</a></p>` +
+    `</body></html>`
+  );
+});
+
 router.post("/track", trackLimiter, async (req, res) => {
+  if (isInternal(req)) return res.json({ ok: true, skipped: "internal" });
   try {
     await recordEvent({
       visitorId: req.body?.visitorId,
