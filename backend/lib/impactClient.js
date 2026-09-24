@@ -24,7 +24,7 @@
 const {
   deriveDiscount, isNonUsTargeted, stripCodeMention, stripHtmlTags,
   cleanStoreName, dedupeIdenticalOffers, capPerAdvertiser, isBlockedAdvertiser,
-  extractCodeFromText
+  extractCodeFromText, redactCodes
 } = require("./cjClient");
 
 function logoDomainFrom(url) {
@@ -120,11 +120,11 @@ function mapAdToDeal(ad, campaignsById) {
   // Name is often just the code, which makes a useless title — prefer the
   // description and only fall back to Name when there's nothing else.
   let title = rawDescription || String(ad.Name || "").trim();
-  title = stripCodeMention(title, code);
+  title = redactCodes(title, code);
   // Stripped separately from the title, and for a different reason: the
   // description is what the deal modal prints above the phone gate, so a
   // code left in it is readable without verifying.
-  const description = stripCodeMention(rawDescription, code);
+  const description = redactCodes(rawDescription, code);
 
   return {
     impactAdId: String(ad.Id),

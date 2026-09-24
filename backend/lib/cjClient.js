@@ -307,11 +307,14 @@ function mapLinkToDeal(link) {
   // code left sitting in it is readable without verifying — which is the
   // whole gate, bypassed. This ran on the title only; 21 of 80 coded deals
   // were publishing their code in the description.
-  const description = stripCodeMention(rawDescription, code);
+  const description = redactCodes(rawDescription, code);
   const promotionType = link["promotion-type"];
   let title = cleanTitle(pickBestTitle(link["link-name"], rawDescription, rawStore), rawStore);
   title = stripUsPrefix(title);
-  title = stripCodeMention(title, code);
+  // redactCodes, not stripCodeMention: an advertiser can write a different
+  // code in the text than the one in the structured field, and cleaning only
+  // the one we were handed leaves the other sitting in the stored row.
+  title = redactCodes(title, code);
 
   return {
     cjLinkId: String(link["link-id"]),
