@@ -272,7 +272,14 @@ function redactCodes(text, knownCode) {
     if (next === out) break;
     out = next;
   }
-  return out;
+
+  // Lifting a code out of "Extra 54% OFF (code:E54)" leaves the brackets
+  // behind, and those land on a deal tile. Only ever removes a bracket pair
+  // that is now empty.
+  return out
+    .replace(/\(\s*\)|\[\s*\]|\{\s*\}|["\u201c]\s*["\u201d]/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 }
 
 // Some advertisers occasionally leave stray markup in their description

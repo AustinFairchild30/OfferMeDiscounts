@@ -183,38 +183,8 @@ async function fetchImpactDeals() {
 }
 
 // --- Category resolution -------------------------------------------------
-// Impact returns no category anywhere, so each advertiser is classified once
-// from its own CampaignDescription and cached in advertiser_categories. One
-// Haiku call per NEW advertiser, never per deal and never per sync — with 19
-// approved brands that's a one-off cost that then stays at zero.
-const pool = require("../db/pool");
-const { classifyAdvertiser } = require("./claudeClient");
-const { CATEGORY_TAGS } = require("./categoryTags");
-
-async function resolveCategories(deals) {
-  const { rows } = await pool.query("SELECT advertiser, category FROM advertiser_categories");
-  const known = new Map(rows.map(r => [r.advertiser, r.category]));
-  const allowed = Object.keys(CATEGORY_TAGS);
-
-  for (const deal of deals) {
-    if (known.has(deal.store)) continue;
-    let category = "Other";
-    try {
-      category = await classifyAdvertiser(deal.store, deal.campaignDescription, allowed);
-    } catch (err) {
-      // A classification failure must not cost us the deal — "Other" still
-      // shows, it just lands in the "More" browse group until reclassified.
-      console.error(`Could not classify ${deal.store}:`, err.message);
-    }
-    await pool.query(
-      `INSERT INTO advertiser_categories (advertiser, category) VALUES ($1,$2)
-       ON CONFLICT (advertiser) DO UPDATE SET category = EXCLUDED.category`,
-      [deal.store, category]
-    );
-    known.set(deal.store, category);
-  }
-
-  return deals.map(d => ({ ...d, category: known.get(d.store) || "Other" }));
-}
+// Moved to advertiserCategories.js when Awin became the third network needing
+// exactly this. Re-exported so existing callers don't change.
+const { resolveCategories } = require("./advertiserCategories");
 
 module.exports = { fetchImpactDeals, resolveCategories, looksLikeCode, NO_EXPIRY };

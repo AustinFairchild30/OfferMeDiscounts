@@ -11,7 +11,14 @@ services:
     # an unrelated backend change happened to flush it through.
     # The commands cd in so npm and dotenv still resolve against backend/.
     buildCommand: cd backend && npm install
-    startCommand: cd backend && npm start
+    # Migrations run on boot, not by hand. Adding awin_promotion_id to the
+    # deals SELECT proved why: the column was in the code before it was in the
+    # database, and every read threw errorMissingColumn — the whole site down
+    # until someone remembered a manual step that nothing documents at deploy
+    # time. schema.sql is entirely IF NOT EXISTS, so this is idempotent, and a
+    # migration that does fail now fails the boot loudly with the previous
+    # version still serving, instead of shipping a crash.
+    startCommand: cd backend && npm run migrate && npm start
     envVars:
       - key: TWILIO_ACCOUNT_SID
         sync: false
@@ -32,6 +39,17 @@ services:
       - key: CJ_WEBSITE_ID
         sync: false
       - key: CRON_SECRET
+        sync: false
+      # Awin, the third network. Both are required before any Awin sync runs;
+      # without them runAwinSync returns "not configured" and the other two
+      # networks carry on untouched. AWIN_PROMOTIONS_URL is only needed if the
+      # probe finds Awin exposes vouchers as a generated feed on this account
+      # rather than over the REST API — see lib/awinClient.js.
+      - key: AWIN_API_TOKEN
+        sync: false
+      - key: AWIN_PUBLISHER_ID
+        sync: false
+      - key: AWIN_PROMOTIONS_URL
         sync: false
       # Google Search Console HTML-file verification. Set this to the exact
       # filename Google gives you (e.g. google1a2b3c4d.html) and the server

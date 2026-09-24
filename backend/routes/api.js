@@ -9,9 +9,10 @@ const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
 const twilio = require("twilio");
 const { sendVerificationCode, checkVerificationCode, sendSms } = require("../lib/twilioClient");
 const { pickBestDeal, writeSmsCopy, parseInboundIntent, scoreDealsForUser } = require("../lib/claudeClient");
-const { readDeals, getDealById, addDeal, updateDeal, removeDeal, upsertCjDeals, upsertImpactDeals, pruneImpactDeals, purgeBlockedDeals, purgeExpiredDeals } = require("../lib/dealsStore");
+const { readDeals, getDealById, addDeal, updateDeal, removeDeal, upsertCjDeals, upsertImpactDeals, pruneImpactDeals, upsertAwinDeals, pruneAwinDeals, purgeBlockedDeals, purgeExpiredDeals } = require("../lib/dealsStore");
 const { fetchCjDeals } = require("../lib/cjClient");
 const { fetchImpactDeals, resolveCategories } = require("../lib/impactClient");
+const { fetchAwinDeals } = require("../lib/awinClient");
 const { CATEGORY_TAGS, CATEGORY_LABELS, CATEGORY_GROUPS } = require("../lib/categoryTags");
 const { checkAndPruneDeadLinks } = require("../lib/linkChecker");
 const { getUser, getAllUsers, upsertUser, logEngagement, markLastEngagementDisliked, markLastEngagementCopied } = require("../lib/userStore");
@@ -355,6 +356,23 @@ async function runImpactSync() {
   }
 }
 
+// Same independence rule as Impact: a bad Awin token or an outage there must
+// not stop the catalog refreshing from the other two networks.
+async function runAwinSync() {
+  if (!process.env.AWIN_API_TOKEN || !process.env.AWIN_PUBLISHER_ID) {
+    return { skipped: "not configured" };
+  }
+  try {
+    const deals = await resolveCategories(await fetchAwinDeals());
+    const result = await upsertAwinDeals(deals);
+    const pruned = await pruneAwinDeals(deals.map(d => d.awinPromotionId));
+    return { ...result, pruned };
+  } catch (err) {
+    console.error("Awin sync error:", err.message);
+    return { error: err.message };
+  }
+}
+
 async function runCjSync(res) {
   try {
     const cjDeals = await fetchCjDeals();
@@ -376,6 +394,11 @@ router.post("/deals/sync-impact", requireAdmin, async (req, res) => {
   res.json({ success: !result.error, ...result });
 });
 
+router.post("/deals/sync-awin", requireAdmin, async (req, res) => {
+  const result = await runAwinSync();
+  res.json({ success: !result.error, ...result });
+});
+
 // Same sync, plus a dead-link sweep, triggered by a scheduled job instead
 // of the admin dashboard — see .github/workflows/sync-cj.yml. The link
 // check can take a while (network round-trips to every merchant site), so
@@ -385,12 +408,13 @@ router.post("/cron/sync-cj", requireCronSecret, async (req, res) => {
     const cjDeals = await fetchCjDeals();
     const syncResult = await upsertCjDeals(cjDeals);
     const impactResult = await runImpactSync();
+    const awinResult = await runAwinSync();
     // Link checking runs after both syncs so newly-arrived deals from either
     // network are covered by the same sweep.
     const linkCheckResult = await checkAndPruneDeadLinks();
     const blockedResult = await purgeBlockedDeals();
     const expiredResult = await purgeExpiredDeals();
-    res.json({ success: true, ...syncResult, impact: impactResult, linkCheck: linkCheckResult, blocked: blockedResult, expired: expiredResult });
+    res.json({ success: true, ...syncResult, impact: impactResult, awin: awinResult, linkCheck: linkCheckResult, blocked: blockedResult, expired: expiredResult });
   } catch (err) {
     console.error("Cron sync error:", err.message);
     res.status(500).json({ success: false, error: err.message });

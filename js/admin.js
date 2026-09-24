@@ -221,6 +221,29 @@ async function handleSyncImpact(e) {
   }
 }
 
+async function handleSyncAwin(e) {
+  const btn = e?.target;
+  if (btn) btn.disabled = true;
+  try {
+    const res = await fetch("/api/deals/sync-awin", { method: "POST" });
+    if (redirectToAdminLoginIfUnauthorized(res)) return;
+    const data = await res.json();
+    if (!res.ok || !data.success) throw new Error(data.error || "Sync failed");
+    if (data.skipped === "not configured") {
+      showToast("Awin isn't configured on the server — nothing synced.");
+      return;
+    }
+    await refreshAll();
+    const prunedNote = data.pruned?.removed ? `, ${data.pruned.removed} pruned` : "";
+    const skippedNote = data.skipped ? `, ${data.skipped} skipped (excluded)` : "";
+    showToast(`Synced from Awin — ${data.created} new, ${data.updated} updated${prunedNote}${skippedNote}`);
+  } catch (err) {
+    alert(`Awin sync failed: ${err.message}`);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
 function showToast(msg) {
   const toast = document.getElementById("toast");
   toast.textContent = msg;

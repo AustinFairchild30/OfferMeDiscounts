@@ -149,6 +149,19 @@ CREATE TABLE IF NOT EXISTS advertiser_categories (
 -- Same role as cj_excluded_links, for the other network: deleting an
 -- Impact-sourced deal from the admin dashboard has to stick across syncs, or
 -- tomorrow's sync just puts it back.
+-- Third network. Same shape as the other two rather than a generic
+-- (source, external_id) pair: the existing columns and their partial unique
+-- indexes already work, and changing that shape would mean migrating live
+-- rows from two networks to gain tidiness and nothing else.
+ALTER TABLE deals ADD COLUMN IF NOT EXISTS awin_promotion_id TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS deals_awin_promotion_id_idx
+  ON deals(awin_promotion_id) WHERE awin_promotion_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS awin_excluded_promotions (
+  awin_promotion_id TEXT PRIMARY KEY,
+  excluded_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS impact_excluded_ads (
   impact_ad_id TEXT PRIMARY KEY,
   excluded_at  TIMESTAMPTZ NOT NULL DEFAULT now()

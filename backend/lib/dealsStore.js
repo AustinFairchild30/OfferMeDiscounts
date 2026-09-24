@@ -5,7 +5,7 @@
 const pool = require("../db/pool");
 const { isBlockedAdvertiser } = require("./cjClient");
 
-const COLUMNS = "id, title, brand, store, category, discount, code, description, expires, featured, emoji, link, source, logo_domain, logo_url, updated_at, impact_ad_id";
+const COLUMNS = "id, title, brand, store, category, discount, code, description, expires, featured, emoji, link, source, logo_domain, logo_url, updated_at, impact_ad_id, awin_promotion_id";
 
 function rowToDeal(row) {
   return {
@@ -170,6 +170,12 @@ async function removeDeal(id) {
       [existing.impact_ad_id]
     );
   }
+  if (existing.source === "awin" && existing.awin_promotion_id) {
+    await pool.query(
+      "INSERT INTO awin_excluded_promotions (awin_promotion_id) VALUES ($1) ON CONFLICT DO NOTHING",
+      [existing.awin_promotion_id]
+    );
+  }
   if (existing.source === "cj") {
     const { rows } = await pool.query("SELECT cj_link_id FROM deals WHERE id = $1", [id]);
     const cjLinkId = rows[0]?.cj_link_id;
@@ -186,6 +192,65 @@ async function removeDeal(id) {
 // with a fresh future expiration on a later sync (a renewed promotion),
 // it should be free to reappear as a new row, not stay permanently
 // excluded the way a curated-out or dead-linked deal does.
+// Mirrors upsertImpactDeals exactly, including the IS DISTINCT FROM guard
+// that keeps updated_at — and therefore sitemap lastmod — honest across a
+// daily sync that touches every row. Keyed on awin_promotion_id so the three
+// networks never collide.
+async function upsertAwinDeals(awinDeals) {
+  const { rows: excludedRows } = await pool.query("SELECT awin_promotion_id FROM awin_excluded_promotions");
+  const excluded = new Set(excludedRows.map(r => r.awin_promotion_id));
+
+  let created = 0;
+  let updated = 0;
+  let unchanged = 0;
+  let skipped = 0;
+
+  for (const d of awinDeals) {
+    if (excluded.has(d.awinPromotionId)) {
+      skipped++;
+      continue;
+    }
+    const { rows: existingRows } = await pool.query(
+      "SELECT id FROM deals WHERE awin_promotion_id = $1", [d.awinPromotionId]
+    );
+    if (existingRows[0]) {
+      const { rowCount } = await pool.query(
+        `UPDATE deals SET title=$2, brand=$3, store=$4, category=$5, discount=$6, code=$7,
+           description=$8, expires=$9, link=$10, logo_domain=$11, updated_at=now()
+         WHERE awin_promotion_id=$1
+           AND (title, brand, store, category, discount, code, description, expires, link, logo_domain)
+               IS DISTINCT FROM ($2,$3,$4,$5,$6,$7,$8,$9::date,$10,$11)`,
+        [d.awinPromotionId, d.title, d.brand, d.store, d.category, d.discount, d.code, d.description, d.expires, d.link, d.logoDomain]
+      );
+      if (rowCount) updated++;
+      else unchanged++;
+    } else {
+      const id = await makeDealId();
+      await pool.query(
+        `INSERT INTO deals (id, title, brand, store, category, discount, code, description, expires, featured, emoji, link, source, awin_promotion_id, logo_domain)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,false,$10,$11,'awin',$12,$13)`,
+        [id, d.title, d.brand, d.store, d.category, d.discount, d.code, d.description, d.expires, d.emoji || null, d.link, d.awinPromotionId, d.logoDomain]
+      );
+      created++;
+    }
+  }
+  return { created, updated, unchanged, skipped, total: awinDeals.length };
+}
+
+// Same reasoning as pruneImpactDeals: the dedupe and the per-advertiser cap
+// decide what a sync offers, and without this the rows they dropped would sit
+// in the catalog untouched. Guarded on a non-empty keep list so a failed API
+// call changes nothing rather than emptying the catalog.
+async function pruneAwinDeals(keptPromotionIds) {
+  const ids = [...new Set((keptPromotionIds || []).filter(Boolean).map(String))];
+  if (!ids.length) return { removed: 0, skipped: "empty sync" };
+  const { rowCount } = await pool.query(
+    "DELETE FROM deals WHERE source = 'awin' AND awin_promotion_id <> ALL($1::text[])",
+    [ids]
+  );
+  return { removed: rowCount };
+}
+
 // Neither upsert deletes anything: a row that stops appearing in a sync is
 // left alone, which is the right call for a transient API hiccup and the
 // wrong one for a deal the deduper or the per-advertiser cap has just
@@ -230,4 +295,4 @@ async function purgeExpiredDeals() {
   return { removed: rowCount };
 }
 
-module.exports = { readDeals, getDealById, addDeal, updateDeal, removeDeal, upsertCjDeals, upsertImpactDeals, pruneImpactDeals, purgeBlockedDeals, purgeExpiredDeals };
+module.exports = { readDeals, getDealById, addDeal, updateDeal, removeDeal, upsertCjDeals, upsertImpactDeals, pruneImpactDeals, upsertAwinDeals, pruneAwinDeals, purgeBlockedDeals, purgeExpiredDeals };
