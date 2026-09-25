@@ -11,10 +11,18 @@
 // saved. So: find out what this account really returns, then write the
 // mapping against that.
 //
-// Awin's REST API is documented at https://wiki.awin.com/index.php/API but
-// the promotions/voucher endpoint in particular has moved around, and what a
-// given publisher account can reach depends on the programmes it has joined.
-// This tries every candidate path and reports which ones answer.
+// It has now been run once, and the answers are recorded in the header of
+// lib/awinClient.js. Keeping it is still worth it: re-run after joining
+// programmes to confirm the field shapes on rows that are actually yours,
+// and re-run if a sync starts returning nothing, since that is usually the
+// endpoint moving rather than the mapping breaking.
+//
+// What it found the first time, all of which contradicted the docs-based
+// first draft: promotions are POST /publisher/{id}/promotions (singular,
+// POST), programmes are GET /publishers/{id}/programmes (plural), the
+// tracking link is urlTracking rather than url, the code is nested at
+// voucher.code and often null, and every server-side filter shape returns
+// 400 or 500.
 //
 // Prints structure, not secrets: the token is never echoed, and sample values
 // are truncated.
@@ -39,7 +47,10 @@ if (!token || !publisherId) {
 // both /publishers/ and /publisher/ (singular) across versions, and promotions
 // have appeared as both GET and POST.
 const CANDIDATES = [
+  // The two known-good paths first, so a re-run answers the important
+  // question — "do these still work?" — before anything else.
   { method: "GET", path: `/publishers/${publisherId}/programmes?relationship=joined` },
+  { method: "POST", path: `/publisher/${publisherId}/promotions`, body: { filters: {}, pagination: { page: 1, pageSize: 5 } } },
   { method: "GET", path: `/publishers/${publisherId}/programmes` },
   { method: "GET", path: `/publisher/${publisherId}/programmes?relationship=joined` },
   { method: "GET", path: `/publishers/${publisherId}/programmedetails` },
@@ -127,11 +138,10 @@ What to check in the output above:
 
   1. Which path returns the JOINED programmes, and what is the
      advertiser/programme name field called?
-  2. Is there a working promotions/voucher endpoint at all? If none of
-     the candidates answered, Awin may only expose vouchers through a
-     generated feed (Toolbox > Create-a-Feed) rather than the REST API —
-     in which case awinClient.js needs to read that feed URL instead, and
-     AWIN_PROMOTIONS_URL is the env var it will look for.
+  2. Does POST /publisher/{id}/promotions still answer, and does
+     advertiser.joined still appear on the rows? That flag is the only
+     thing separating your programmes from the other 32,000 promotions
+     in the feed, since no server-side filter shape works.
   3. On a promotion row: which field holds the code, the description, the
      start/end dates, and the tracking/deep link?
   4. Are discounts structured (a percentage/amount field) or free text?

@@ -42,14 +42,10 @@ services:
         sync: false
       # Awin, the third network. Both are required before any Awin sync runs;
       # without them runAwinSync returns "not configured" and the other two
-      # networks carry on untouched. AWIN_PROMOTIONS_URL is only needed if the
-      # probe finds Awin exposes vouchers as a generated feed on this account
-      # rather than over the REST API — see lib/awinClient.js.
+      # networks carry on untouched.
       - key: AWIN_API_TOKEN
         sync: false
       - key: AWIN_PUBLISHER_ID
-        sync: false
-      - key: AWIN_PROMOTIONS_URL
         sync: false
       # Google Search Console HTML-file verification. Set this to the exact
       # filename Google gives you (e.g. google1a2b3c4d.html) and the server
