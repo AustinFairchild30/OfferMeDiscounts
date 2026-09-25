@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 320" width="1200" height="320" role="img" aria-label="OfferMeDiscounts">
+  <g transform="translate(40,80) scale(0.3125)">
+    <path d="M158,0 H354 A158,158 0 0 1 512,158 V354 A158,158 0 0 1 354,512 H60 A60,60 0 0 1 0,452 V158 A158,158 0 0 1 158,0 Z" fill="#ff5d73"/>
+    <text x="256" y="356" text-anchor="middle" fill="#241f30"
+          font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif"
+          font-size="300" font-weight="800">%</text>
+  </g>
+  <text x="232" y="202" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif"
+        font-size="104" font-weight="800" letter-spacing="-2">
+    <tspan fill="#241f30">Offer</tspan><tspan fill="#ff5d73">Me</tspan><tspan fill="#241f30">Discounts</tspan>
+  </text>
+</svg>
