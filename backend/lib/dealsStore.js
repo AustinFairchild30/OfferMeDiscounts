@@ -290,9 +290,31 @@ async function purgeBlockedDeals() {
   return { removed: blocked.length, stores: [...new Set(blocked.map(r => r.store))] };
 }
 
+// The counterpart to pruneImpactDeals, and the general form of a bug that has
+// now been patched three separate ways.
+//
+// upsertCjDeals only touches rows the sync offers it. A deal that stops
+// qualifying — blocked advertiser, free shipping once that stopped counting,
+// a discount that no longer parses — is by definition absent from the fetch,
+// so the upsert never sees it and the stale row sits in the catalog forever.
+// Each of those needed its own purge because there was nothing saying "this
+// link is no longer one of ours". This says it once.
+//
+// Guarded on a non-empty keep list, same as Impact: an empty sync means the
+// fetch failed, and the right response to that is to change nothing.
+async function pruneCjDeals(keptLinkIds) {
+  const ids = [...new Set((keptLinkIds || []).filter(Boolean).map(String))];
+  if (!ids.length) return { removed: 0, skipped: "empty sync" };
+  const { rowCount } = await pool.query(
+    "DELETE FROM deals WHERE source = 'cj' AND cj_link_id <> ALL($1::text[])",
+    [ids]
+  );
+  return { removed: rowCount };
+}
+
 async function purgeExpiredDeals() {
   const { rowCount } = await pool.query("DELETE FROM deals WHERE expires < CURRENT_DATE");
   return { removed: rowCount };
 }
 
-module.exports = { readDeals, getDealById, addDeal, updateDeal, removeDeal, upsertCjDeals, upsertImpactDeals, pruneImpactDeals, upsertAwinDeals, pruneAwinDeals, purgeBlockedDeals, purgeExpiredDeals };
+module.exports = { readDeals, getDealById, addDeal, updateDeal, removeDeal, upsertCjDeals, upsertImpactDeals, pruneImpactDeals, upsertAwinDeals, pruneCjDeals, pruneAwinDeals, purgeBlockedDeals, purgeExpiredDeals };

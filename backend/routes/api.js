@@ -9,7 +9,7 @@ const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
 const twilio = require("twilio");
 const { sendVerificationCode, checkVerificationCode, sendSms } = require("../lib/twilioClient");
 const { pickBestDeal, writeSmsCopy, parseInboundIntent, scoreDealsForUser } = require("../lib/claudeClient");
-const { readDeals, getDealById, addDeal, updateDeal, removeDeal, upsertCjDeals, upsertImpactDeals, pruneImpactDeals, upsertAwinDeals, pruneAwinDeals, purgeBlockedDeals, purgeExpiredDeals } = require("../lib/dealsStore");
+const { readDeals, getDealById, addDeal, updateDeal, removeDeal, upsertCjDeals, upsertImpactDeals, pruneImpactDeals, upsertAwinDeals, pruneCjDeals, pruneAwinDeals, purgeBlockedDeals, purgeExpiredDeals } = require("../lib/dealsStore");
 const { fetchCjDeals } = require("../lib/cjClient");
 const { fetchImpactDeals, resolveCategories } = require("../lib/impactClient");
 const { fetchAwinDeals } = require("../lib/awinClient");
@@ -387,8 +387,9 @@ async function runCjSync(res) {
   try {
     const cjDeals = await fetchCjDeals();
     const result = await upsertCjDeals(cjDeals);
+    const pruned = await pruneCjDeals(cjDeals.map(d => d.cjLinkId));
     const blocked = await purgeBlockedDeals();
-    res.json({ success: true, ...result, blocked });
+    res.json({ success: true, ...result, pruned, blocked });
   } catch (err) {
     console.error("CJ sync error:", err.message);
     res.status(500).json({ success: false, error: err.message });
@@ -417,6 +418,7 @@ router.post("/cron/sync-cj", requireCronSecret, async (req, res) => {
   try {
     const cjDeals = await fetchCjDeals();
     const syncResult = await upsertCjDeals(cjDeals);
+    const cjPruned = await pruneCjDeals(cjDeals.map(d => d.cjLinkId));
     const impactResult = await runImpactSync();
     const awinResult = await runAwinSync();
     // Link checking runs after both syncs so newly-arrived deals from either
@@ -424,7 +426,7 @@ router.post("/cron/sync-cj", requireCronSecret, async (req, res) => {
     const linkCheckResult = await checkAndPruneDeadLinks();
     const blockedResult = await purgeBlockedDeals();
     const expiredResult = await purgeExpiredDeals();
-    res.json({ success: true, ...syncResult, impact: impactResult, awin: awinResult, linkCheck: linkCheckResult, blocked: blockedResult, expired: expiredResult });
+    res.json({ success: true, ...syncResult, impact: impactResult, awin: awinResult, linkCheck: linkCheckResult, cjPruned, blocked: blockedResult, expired: expiredResult });
   } catch (err) {
     console.error("Cron sync error:", err.message);
     res.status(500).json({ success: false, error: err.message });

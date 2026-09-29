@@ -44,8 +44,13 @@ function parseExpires(promotionEndDate) {
 // an internal category, not an actual discount amount — showing it as the
 // deal's discount badge looks specific but says nothing real. Pull an
 // actual figure out of the advertiser's own text when there is one, and
-// only fall back to a category label for "Free Shipping" (informative on
-// its own). Otherwise leave it blank rather than show a vague label.
+// otherwise leave it blank rather than show a vague label.
+//
+// Free shipping used to qualify. It doesn't any more: the tile gives its
+// biggest element to the discount, and "Free Shipping" occupying that slot
+// promises a saving the offer doesn't contain. It also can't be ranked
+// against the others — there's no number in it — so it drifted to the
+// bottom of every sort while still taking a card.
 function deriveDiscount(promotionType, title, description) {
   const text = `${description} ${title}`;
 
@@ -61,8 +66,6 @@ function deriveDiscount(promotionType, title, description) {
 
   const dollarMatch = text.match(/\$(\d+(?:\.\d{2})?)\s*(?:off|discount)/i);
   if (dollarMatch) return `$${dollarMatch[1]} OFF`;
-
-  if (promotionType === "Free Shipping") return "Free Shipping";
 
   return null;
 }
@@ -392,7 +395,7 @@ const MAX_DEALS_PER_ADVERTISER = 20;
 function discountRank(deal) {
   if (!deal.discount) return -1;              // code-only deals are dropped first
   const n = deal.discount.match(/(\d+(?:\.\d+)?)/);
-  return n ? parseFloat(n[1]) : 0;            // "Free Shipping" outranks nothing but null
+  return n ? parseFloat(n[1]) : 0;            // a discount with no figure in it sorts last
 }
 
 // Advertisers routinely register one link per placement or property that all
