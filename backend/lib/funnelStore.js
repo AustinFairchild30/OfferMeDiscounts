@@ -142,7 +142,11 @@ async function report(days = 30) {
 
   const { rows: deals } = await pool.query(
     `SELECT f.deal_id,
-            d.store,
+            -- A deal deleted since the event (expired, curated out, or caught
+            -- by the advertiser blocklist) leaves the join null, which shows
+            -- as a blank row in the report rather than telling you which deal
+            -- it was.
+            coalesce(d.store, '(deleted deal ' || f.deal_id || ')') AS store,
             d.discount,
             count(*) FILTER (WHERE f.step = 'deal_view')::int AS views,
             count(*) FILTER (WHERE f.step = 'code_copied')::int AS copies,

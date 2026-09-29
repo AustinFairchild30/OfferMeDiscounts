@@ -21,7 +21,8 @@ const { searchDeals, MAX_QUERY_LENGTH } = require("../lib/dealSearch");
 const { COOKIE_NAME, SESSION_TTL_MS, createSessionToken, checkPassword, requireAdmin, requireCronSecret } = require("../lib/adminAuth");
 const { verifySessionToken } = require("../lib/adminAuth");
 const {
-  USER_COOKIE_NAME, createUserSessionToken, requireVerifiedUser, userCookieOptions
+  USER_COOKIE_NAME, createUserSessionToken, requireVerifiedUser, userCookieOptions,
+  readUserSession
 } = require("../lib/userSession");
 const { redactCodes } = require("../lib/cjClient");
 
@@ -533,7 +534,13 @@ router.post("/track", trackLimiter, async (req, res) => {
   try {
     await recordEvent({
       visitorId: req.body?.visitorId,
-      phone: toE164(req.body?.phone) || null,
+      // Read from the verified session, never from the request body. The
+      // campaign report counts a visitor as registered when any of their
+      // events carries a phone, so trusting the body meant anyone could POST
+      // one and manufacture a conversion — and more mundanely, it's how
+      // local testing with a phone in localStorage put three conversions
+      // into the report against zero actual verifications.
+      phone: readUserSession(req.cookies?.[USER_COOKIE_NAME]),
       step: req.body?.step,
       dealId: req.body?.dealId,
       source: req.body?.source,
