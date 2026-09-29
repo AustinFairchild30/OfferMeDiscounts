@@ -49,8 +49,15 @@ function parseExpires(promotionEndDate) {
 function deriveDiscount(promotionType, title, description) {
   const text = `${description} ${title}`;
 
+  // 100% is never a discount in this data — it's "100% Virgin Human Hair",
+  // "1 child 100% FREE", "100% free shipping", "100% satisfaction". A coupon
+  // tile reading "100% OFF" looks like a scam, which is a worse outcome than
+  // showing no badge at all, and a genuine 100%-off coupon would read the
+  // same way anyway.
   const percentMatch = text.match(/(\d{1,3})\s*%/);
-  if (percentMatch) return `${percentMatch[1]}% OFF`;
+  if (percentMatch && Number(percentMatch[1]) < 100 && Number(percentMatch[1]) > 0) {
+    return `${percentMatch[1]}% OFF`;
+  }
 
   const dollarMatch = text.match(/\$(\d+(?:\.\d{2})?)\s*(?:off|discount)/i);
   if (dollarMatch) return `$${dollarMatch[1]} OFF`;
@@ -67,6 +74,11 @@ function deriveDiscount(promotionType, title, description) {
 // requiring an explicit "US" tag, since most links have no country marker
 // at all and are presumably fine as the default/US case.
 function isNonUsTargeted(text) {
+  // A price quoted in pounds or euros is a non-US offer whatever the country
+  // fields say. This surfaced as a card reading "$10 OFF" above the
+  // advertiser's own text, "to get £10 off on your order" — the structured
+  // amount had been taken at face value and formatted as dollars.
+  if (/[£€]\s*\d/.test(text)) return true;
   if (/^ca[:.]?\s/i.test(text)) return true; // "CA: ..." — this advertiser's Canada prefix convention
   if (/\b(mexico|canada|latam)\b/i.test(text)) return true;
   if (/\bmx\b/i.test(text)) return true;

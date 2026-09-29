@@ -469,9 +469,14 @@ nav.header-nav a:hover { color: #f3f0f8; }
   min-width: 0;
 }
 .deal-brand-text { min-width: 0; }
+/* Wider than tall. A square box crushes the wordmark logos — Missacc,
+   Monarch Uniforms and Miles District are wide lockups, and contained inside
+   38x38 they rendered a few pixels high while a round mark next to them
+   filled the box. Matching the shape most logos actually are evens out their
+   optical weight down the column. */
 .deal-emoji {
   font-size: 22px;
-  width: 38px;
+  width: 52px;
   height: 38px;
   flex: none;
   border-radius: 9px;
@@ -514,6 +519,10 @@ nav.header-nav a:hover { color: #f3f0f8; }
   line-height: 1.1;
   color: var(--brand-mint);
 }
+/* 50% or $50 and over. One step, not a gradient — the point is that a big
+   discount is findable while scanning, and a scale nobody has the key to is
+   just noise in a second colour. */
+.deal-hero.strong { color: var(--brand-coral-dark); }
 /* Two lines, then ellipsis. Affiliate titles run to 230 characters, and a
    tile that grows to fit one breaks the row it sits in. */
 .deal-offer {
@@ -540,9 +549,22 @@ nav.header-nav a:hover { color: #f3f0f8; }
 }
 /* Empty when the deal has no believable end date, and the row still has to
    hold its shape so the button doesn't slide left on those cards. */
-.deal-expiry { min-height: 1em; }
+/* The meta line gives up space before the button does. Letting flex share it
+   evenly wrapped "Get Code" onto two lines, which broke the baseline across
+   the whole row. */
+.deal-expiry {
+  min-height: 1em;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 11.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .deal-expiry.urgent { color: var(--brand-coral-dark); font-weight: 600; }
 .get-code-btn {
+  flex: none;
+  white-space: nowrap;
   border: none;
   background: var(--plum);
   color: white;

@@ -27,7 +27,22 @@ function offerLine(deal) {
   if (!text) return "";
   if (/\b\d{2,4}\s*[x×]\s*\d{2,4}\b/.test(text)) return "";
 
-  text = text.replace(/^(service|coupon|deal|offer|promo|sale)\s*[:\-–]\s*/i, "").trim();
+  // Affiliate link names are stacked prefixes — "Miles District - Text Link -
+  // 10% Off First Order" carries the store name (already the card's heading)
+  // and the link type (ours to know, not the visitor's to read). Peeled in a
+  // loop because stripping one exposes the next, and a single pass in any
+  // fixed order leaves whichever came second.
+  const LEAD_NOISE = /^(service|coupon|deal|offer|promo|sale|text link|text ad|banner|logo|homepage|generic)\s*[:\-–|]\s*/i;
+  const storePrefix = deal.store
+    ? new RegExp(`^${String(deal.store).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*[:\\-–|]\\s*`, "i")
+    : null;
+
+  for (let i = 0; i < 4; i++) {
+    const before = text;
+    text = text.replace(LEAD_NOISE, "").trim();
+    if (storePrefix) text = text.replace(storePrefix, "").trim();
+    if (text === before) break;
+  }
 
   const residue = text
     .toLowerCase()
@@ -39,6 +54,14 @@ function offerLine(deal) {
   if (residue.length < 4) return "";
 
   return text;
+}
+
+// Twin of discountTier() in js/app.js.
+function discountTier(discount) {
+  const text = String(discount || "");
+  const pct = text.includes("%") ? parseFloat(text.match(/(\d+(?:\.\d+)?)/)?.[1] || 0) : 0;
+  const dollars = text.startsWith("$") ? parseFloat(text.match(/(\d+(?:\.\d+)?)/)?.[1] || 0) : 0;
+  return pct >= 50 || dollars >= 50 ? " strong" : "";
 }
 
 function discountValue(discount) {
@@ -67,12 +90,12 @@ function cardHtml(deal) {
           </div>
         </div>
         <div class="deal-body">
-          <div class="deal-hero">${escapeHtml(deal.discount)}</div>
+          <div class="deal-hero${discountTier(deal.discount)}">${escapeHtml(deal.discount)}</div>
           ${offer ? `<p class="deal-offer">${escapeHtml(offer)}</p>` : ""}
         </div>
         <div class="card-footer">
           <span class="deal-expiry"></span>
-          <span class="get-code-btn">Get Code</span>
+          <span class="get-code-btn">${deal.code ? "Get Code" : "Get Deal"}</span>
         </div>
       </a>`;
 }

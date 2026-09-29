@@ -606,7 +606,22 @@ function offerLine(deal) {
   // Banner dimensions in the link name, e.g. "Winebasket120x600".
   if (/\b\d{2,4}\s*[x\u00d7]\s*\d{2,4}\b/.test(text)) return "";
 
-  text = text.replace(/^(service|coupon|deal|offer|promo|sale)\s*[:\-\u2013]\s*/i, "").trim();
+  // Affiliate link names are stacked prefixes — "Miles District - Text Link -
+  // 10% Off First Order" carries the store name (already the card's heading)
+  // and the link type (ours to know, not the visitor's to read). Peeled in a
+  // loop because stripping one exposes the next, and a single pass in any
+  // fixed order leaves whichever came second.
+  const LEAD_NOISE = /^(service|coupon|deal|offer|promo|sale|text link|text ad|banner|logo|homepage|generic)\s*[:\-\u2013|]\s*/i;
+  const storePrefix = deal.store
+    ? new RegExp(`^${String(deal.store).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*[:\\-\u2013|]\\s*`, "i")
+    : null;
+
+  for (let i = 0; i < 4; i++) {
+    const before = text;
+    text = text.replace(LEAD_NOISE, "").trim();
+    if (storePrefix) text = text.replace(storePrefix, "").trim();
+    if (text === before) break;
+  }
 
   // Strip the store name, the discount itself and connective filler. If
   // there's essentially nothing left, the title was only restating the two
@@ -652,6 +667,17 @@ function expiryLabel(iso) {
   };
 }
 
+// 136 tiles all saying the same thing in the same green stop being read.
+// The top tier gets the brand coral, so a genuinely big discount is findable
+// by scanning rather than by reading every card. Threshold, not a gradient:
+// a scale nobody has the key to is just noise in another form.
+function discountTier(discount) {
+  const text = String(discount || "");
+  const pct = text.includes("%") ? parseFloat(text.match(/(\d+(?:\.\d+)?)/)?.[1] || 0) : 0;
+  const dollars = text.startsWith("$") ? parseFloat(text.match(/(\d+(?:\.\d+)?)/)?.[1] || 0) : 0;
+  return pct >= 50 || dollars >= 50 ? " strong" : "";
+}
+
 function dealCardHTML(d) {
   const offer = offerLine(d);
   const expiry = expiryLabel(d.expires);
@@ -665,13 +691,13 @@ function dealCardHTML(d) {
         </div>
       </div>
       <div class="deal-body">
-        <div class="deal-hero">${escapeHtml(d.discount)}</div>
+        <div class="deal-hero${discountTier(d.discount)}">${escapeHtml(d.discount)}</div>
         ${offer ? `<p class="deal-offer">${escapeHtml(offer)}</p>` : ""}
       </div>
       ${TASTE_REASONS[d.id] ? `<div class="match-reason">Because you like ${escapeHtml(TASTE_REASONS[d.id])}</div>` : ""}
       <div class="card-footer">
         <span class="deal-expiry${expiry?.urgent ? " urgent" : ""}">${expiry ? escapeHtml(expiry.text) : ""}</span>
-        <button class="get-code-btn" onclick="event.stopPropagation(); openDealModal('${d.id}')">Get Code</button>
+        <button class="get-code-btn" onclick="event.stopPropagation(); openDealModal('${d.id}')">${d.hasCode ? "Get Code" : "Get Deal"}</button>
       </div>
     </div>
   `;

@@ -170,7 +170,16 @@ function toE164(raw) {
 // defence to depend on.
 function publicDeal(deal) {
   const { code, ...rest } = deal;
-  return { ...rest, description: redactCodes(rest.description, code), title: redactCodes(rest.title, code) };
+  return {
+    ...rest,
+    // Whether a code exists, never the code. A card that can't tell a coupon
+    // from a plain tracking link has to stay vague about what you're about to
+    // unlock, and "Coupon code" vs "Deal" is exactly what someone wants to
+    // know before spending a text on it.
+    hasCode: Boolean(code && String(code).trim()),
+    description: redactCodes(rest.description, code),
+    title: redactCodes(rest.title, code)
+  };
 }
 
 router.get("/deals", async (req, res) => {
