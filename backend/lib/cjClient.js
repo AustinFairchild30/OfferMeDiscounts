@@ -164,6 +164,14 @@ function cleanStoreName(store) {
 // Advertisers we won't carry, whatever the offer is. This isn't a quality
 // bar — it's about what this site does with a deal once it has one.
 //
+// Tobacco and vape sit here for the carrier reason, not a moral one: they
+// are a SHAFT category, and SHAFT content sent through a vetted toll-free
+// number risks the number itself. Losing it would take the whole messaging
+// channel, which is the actual product, not one campaign. They are also the
+// largest single source of vouchers on Awin, so this is not hypothetical —
+// nine of the top 120 advertisers there are vape sellers, and an
+// auto-approving programme could put them in the catalog unnoticed.
+//
 // Every offer here can end up in a text message to a verified phone number,
 // matched to that person because we inferred they'd want it. That makes a
 // deal on sexual-health testing categorically different from a deal on
@@ -177,13 +185,35 @@ function cleanStoreName(store) {
 // regex is a second pass over the offer text for the same subject matter
 // arriving under a different advertiser name; it's deliberately narrow,
 // since "wellness" and "health" are ordinary retail categories we do want.
-const BLOCKED_ADVERTISERS = new Set(["stdcheck", "stdcheck.com"]);
+// Named outright because nothing else would catch them. Sourcemore is the
+// reason this list can't be only patterns: it is the single largest voucher
+// source on Awin (1,438 offers), its site says "Top Vape Shop Online", and
+// its programme record carries an empty description, the sector "Lead Gen"
+// and a name that reads like a sourcing marketplace. A text rule sees
+// nothing. Checked against the live site, not guessed from the name.
+const BLOCKED_ADVERTISERS = new Set([
+  "stdcheck", "stdcheck.com",
+  "sourcemore", "sourcemore.com"
+]);
 
+// Matched against the STORE NAME, where a loose term is safe: no legitimate
+// advertiser in this catalog is called Vapor-anything, and the vape sellers
+// name themselves plainly — Vapesourcing, Morevaping, Vapor Empire, Ejuice
+// Connect, Flawless Vape Shop, Portable Hookahs.
+const BLOCKED_STORE_PATTERN =
+  /vapor|vape|vaping|hookah|shisha|e-?juice|e-?liquid|e-?cig|tobacco|cigar|nicotine|snus|smoke\s?shop/i;
+
+// Matched against the OFFER TEXT, where the same looseness would misfire.
+// Deliberately excludes "vapor" (a Vapormax sneaker deal), "smok" (smoked
+// salmon in Gourmet, a BBQ smoker in Home) and "puff" (puffer jackets, puff
+// pastry, powder puffs) — all of which appear in ordinary retail copy.
 const BLOCKED_SUBJECT_MATTER =
-  /\b(std|sti|hiv|herpes|chlamydia|gonorrhea|syphilis)\b|sexual(ly)?[\s-]?(health|transmitted)|\bviagra\b|\bcialis\b|erectile|\bescort\b/i;
+  /\b(std|sti|hiv|herpes|chlamydia|gonorrhea|syphilis)\b|sexual(ly)?[\s-]?(health|transmitted)|\bviagra\b|\bcialis\b|erectile|\bescort\b|\b(vape|vapes|vaping|vaper|vapers)\b|\b(e-?juices?|e-?liquids?|e-?cigs?|e-?cigarettes?)\b|\b(tobacco|nicotine|hookah|shisha|cigarette|cigarettes|cigar|cigars|snus)\b/i;
 
 function isBlockedAdvertiser(store, text = "") {
-  if (BLOCKED_ADVERTISERS.has(String(store || "").trim().toLowerCase())) return true;
+  const name = String(store || "").trim().toLowerCase();
+  if (BLOCKED_ADVERTISERS.has(name)) return true;
+  if (name && BLOCKED_STORE_PATTERN.test(name)) return true;
   return BLOCKED_SUBJECT_MATTER.test(String(text || ""));
 }
 
