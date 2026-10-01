@@ -2,7 +2,14 @@ services:
   - type: web
     name: offermediscounts
     runtime: node
-    plan: free
+    # Starter, not free. A free web service spins down after ~15 minutes of
+    # inactivity, and at roughly one visitor a day this one is asleep almost
+    # always — so nearly every real visitor and nearly every crawl paid a
+    # 30-60s cold start before seeing anything. A homepage request timed out
+    # at 15s while every warm request answered in ~0.2s. That is a steep
+    # price for the few visitors there are, and it quietly undermines the SEO
+    # work, which is the one channel being invested in.
+    plan: starter
     # Deliberately no rootDir. This service serves the whole repo, not just
     # backend/ — server.js does express.static(path.join(__dirname, "..")),
     # so index.html, about.html, css/ and js/ are all served from the repo
