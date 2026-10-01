@@ -10,6 +10,7 @@ const { robotsTxt, sitemapXml, findStoreBySlug, relatedStores } = require("./lib
 const { renderStorePage } = require("./lib/storePage");
 const { injectHomeGrid } = require("./lib/homePage");
 const { renderStoreIndexPage } = require("./lib/storeIndexPage");
+const { renderNotFoundPage } = require("./lib/notFoundPage");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -186,6 +187,17 @@ for (const [slug, tag] of Object.entries(CAMPAIGN_LANDINGS)) {
 }
 
 app.use("/api", apiRouter);
+
+// Last, so every real route has had its chance. Anything still unmatched is a
+// 404 — a genuine one, with the status code, because that is how a removed
+// store page gets dropped from a search index instead of lingering there.
+// Under /api the caller is code, so it gets JSON rather than a page.
+app.use((req, res) => {
+  if (req.path.startsWith("/api")) {
+    return res.status(404).json({ success: false, error: "Not found." });
+  }
+  res.status(404).type("html").send(renderNotFoundPage(req.path));
+});
 
 app.listen(PORT, () => {
   console.log(`OfferMeDiscounts backend running at http://localhost:${PORT}`);
