@@ -283,8 +283,8 @@ async function pruneImpactDeals(keptAdIds) {
 // block. Runs over the whole table on every sync, both networks, so adding a
 // name to the list is all it takes to have it gone the next morning.
 async function purgeBlockedDeals() {
-  const { rows } = await pool.query("SELECT id, store, title, description FROM deals");
-  const blocked = rows.filter(r => isBlockedAdvertiser(r.store, `${r.title || ""} ${r.description || ""}`));
+  const { rows } = await pool.query("SELECT id, store, title, description, logo_domain FROM deals");
+  const blocked = rows.filter(r => isBlockedAdvertiser(r.store, `${r.title || ""} ${r.description || ""}`, r.logo_domain));
   if (!blocked.length) return { removed: 0 };
   await pool.query("DELETE FROM deals WHERE id = ANY($1::text[])", [blocked.map(r => r.id)]);
   return { removed: blocked.length, stores: [...new Set(blocked.map(r => r.store))] };

@@ -164,9 +164,9 @@ function cleanStoreName(store) {
 // Advertisers we won't carry, whatever the offer is. This isn't a quality
 // bar — it's about what this site does with a deal once it has one.
 //
-// Tobacco and vape sit here for the carrier reason, not a moral one: they
-// are a SHAFT category, and SHAFT content sent through a vetted toll-free
-// number risks the number itself. Losing it would take the whole messaging
+// Tobacco, vape, adult and cannabis sit here for the carrier reason, not a
+// moral one: they are SHAFT categories, and SHAFT content sent through a
+// vetted toll-free number risks the number itself. Losing it would take the whole messaging
 // channel, which is the actual product, not one campaign. They are also the
 // largest single source of vouchers on Awin, so this is not hypothetical —
 // nine of the top 120 advertisers there are vape sellers, and an
@@ -193,7 +193,23 @@ function cleanStoreName(store) {
 // nothing. Checked against the live site, not guessed from the name.
 const BLOCKED_ADVERTISERS = new Set([
   "stdcheck", "stdcheck.com",
-  "sourcemore", "sourcemore.com"
+  "sourcemore", "sourcemore.com",
+  // Awin files both of these under Toys & Games, and neither name says what
+  // it sells. Confirmed from the sites themselves: Adorime is "Premium Sex
+  // Toys", Galaxy Treats sells "Edibles and Vapes" — hemp and mushroom
+  // products. The sector label is where you would look and the last place
+  // the answer is.
+  "adorime", "galaxy treats", "bestrealdoll"
+]);
+
+// The domain is frequently more honest than the advertiser name. "Shenzhen
+// Zhuole E-commerce Co., Ltd" tells you nothing; adorime.com tells you
+// everything. Checked as an exact host and also against the pattern below,
+// since a giveaway word often survives in the domain when the trading name
+// has been sanded smooth.
+const BLOCKED_DOMAINS = new Set([
+  "stdcheck.com", "sourcemore.com",
+  "adorime.com", "galaxytreats.com", "bestrealdoll.com"
 ]);
 
 // Matched against the STORE NAME, where a loose term is safe: no legitimate
@@ -201,19 +217,22 @@ const BLOCKED_ADVERTISERS = new Set([
 // name themselves plainly — Vapesourcing, Morevaping, Vapor Empire, Ejuice
 // Connect, Flawless Vape Shop, Portable Hookahs.
 const BLOCKED_STORE_PATTERN =
-  /vapor|vape|vaping|hookah|shisha|e-?juice|e-?liquid|e-?cig|tobacco|cigar|nicotine|snus|smoke\s?shop/i;
+  /vapor|vape|vaping|hookah|shisha|e-?juice|e-?liquid|e-?cig|tobacco|cigar|nicotine|snus|smoke\s?shop|porn|erotic|fetish|bdsm|dildo|vibrator|sex\s?(toy|doll|shop)|real\s?doll|love\s?doll|onlyfans|brothel|adult\s?(toy|store|shop|video|film)|cannabis|marijuana|\bthc\b|\bcbd\b|delta[\s-]?[89]\b|kratom|dispensary|hemp|psilocybin/i;
 
 // Matched against the OFFER TEXT, where the same looseness would misfire.
 // Deliberately excludes "vapor" (a Vapormax sneaker deal), "smok" (smoked
 // salmon in Gourmet, a BBQ smoker in Home) and "puff" (puffer jackets, puff
 // pastry, powder puffs) — all of which appear in ordinary retail copy.
 const BLOCKED_SUBJECT_MATTER =
-  /\b(std|sti|hiv|herpes|chlamydia|gonorrhea|syphilis)\b|sexual(ly)?[\s-]?(health|transmitted)|\bviagra\b|\bcialis\b|erectile|\bescort\b|\b(vape|vapes|vaping|vaper|vapers)\b|\b(e-?juices?|e-?liquids?|e-?cigs?|e-?cigarettes?)\b|\b(tobacco|nicotine|hookah|shisha|cigarette|cigarettes|cigar|cigars|snus)\b/i;
+  /\b(std|sti|hiv|herpes|chlamydia|gonorrhea|syphilis)\b|sexual(ly)?[\s-]?(health|transmitted)|\bviagra\b|\bcialis\b|erectile|\bescort\b|\b(vape|vapes|vaping|vaper|vapers)\b|\b(e-?juices?|e-?liquids?|e-?cigs?|e-?cigarettes?)\b|\b(tobacco|nicotine|hookah|shisha|cigarette|cigarettes|cigar|cigars|snus)\b|\b(porn|erotic|fetish|bdsm|dildos?|vibrators?|condoms?)\b|\bmasturbat|\bsex\s?(toys?|dolls?)\b|\b(cannabis|marijuana|thc|cbd|kratom|psilocybin)\b|\bdelta[\s-]?[89]\b/i;
 
-function isBlockedAdvertiser(store, text = "") {
+function isBlockedAdvertiser(store, text = "", domain = "") {
   const name = String(store || "").trim().toLowerCase();
+  const host = String(domain || "").trim().toLowerCase().replace(/^www\./, "");
   if (BLOCKED_ADVERTISERS.has(name)) return true;
+  if (host && BLOCKED_DOMAINS.has(host)) return true;
   if (name && BLOCKED_STORE_PATTERN.test(name)) return true;
+  if (host && BLOCKED_STORE_PATTERN.test(host)) return true;
   return BLOCKED_SUBJECT_MATTER.test(String(text || ""));
 }
 
@@ -516,7 +535,7 @@ async function fetchCjDeals() {
     // though there's no actual discount or code attached. Without either,
     // it's just a product link, not a deal.
     .filter(d => d.discount || d.code)
-    .filter(d => !isBlockedAdvertiser(d.store, `${d.title} ${d.description}`));
+    .filter(d => !isBlockedAdvertiser(d.store, `${d.title} ${d.description}`, d.logoDomain));
 
   // ...then collapse links that are the same offer wearing different
   // link-ids, and stop any one advertiser owning the catalog. See above.

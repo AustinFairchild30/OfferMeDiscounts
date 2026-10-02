@@ -172,7 +172,7 @@ async function fetchImpactDeals() {
     // Same bar as CJ: a promotional label alone isn't a deal. Without a real
     // discount or a code there's nothing for a visitor to act on.
     .filter(d => d.discount || d.code)
-    .filter(d => !isBlockedAdvertiser(d.store, `${d.title} ${d.description}`));
+    .filter(d => !isBlockedAdvertiser(d.store, `${d.title} ${d.description}`, d.logoDomain));
 
   // These two ran on the CJ path only, which is how one hair-extensions
   // advertiser came to own 26 of 60 Impact rows — past a cap of 20 — with

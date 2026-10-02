@@ -215,7 +215,7 @@ async function fetchAwinDeals() {
     // Same bar as the other two networks: no discount and no code means
     // there's nothing for a visitor to act on.
     .filter(d => d.discount || d.code)
-    .filter(d => !isBlockedAdvertiser(d.store, `${d.title} ${d.description}`));
+    .filter(d => !isBlockedAdvertiser(d.store, `${d.title} ${d.description}`, d.logoDomain));
 
   return capPerAdvertiser(dedupeIdenticalOffers(deals));
 }
