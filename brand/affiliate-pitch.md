@@ -7,6 +7,20 @@ Every claim below is verifiable by loading the site. That is deliberate — an
 affiliate manager checks, and the compliance paragraph only carries weight
 because the rest of it holds up.
 
+## Before clicking Join — the checklist
+
+1. **Tick the website in the "Promotion" dropdown.** "Content" is only the
+   group heading; `https://www.offermediscounts.com/` is the item that has to
+   be selected. Submitting without it sends the advertiser an application
+   with no promotional space attached, and the closest rejection reason on
+   their list is then "URL is irrelevant to advertiser brand" — which is
+   exactly what came back from the first one.
+2. Paste the message below, replacing `[BRAND]`.
+3. Read the programme's own terms before ticking the box, at least for
+   trademark-bidding and coupon-publisher clauses. They differ per advertiser
+   and agreeing to one you haven't read is how a programme gets terminated
+   later.
+
 ## Programme application message (Awin's limit is 1,000 characters)
 
 Replace `[BRAND]`. **Do not promise a `/[brand]-coupons` URL** — that page
