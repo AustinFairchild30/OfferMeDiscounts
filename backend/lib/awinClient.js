@@ -39,6 +39,12 @@ const {
 const BASE = "https://api.awin.com";
 const PAGE_SIZE = 200;              // hard ceiling; larger is rejected
 const MAX_PAGES = 250;              // 50k rows, well clear of the ~32k live
+// A wall-clock ceiling, because a page cap isn't one: each page retries four
+// times with backoff, so 250 pages against a sulking endpoint is unbounded in
+// the only unit that matters. Hitting this returns complete:false, which
+// means the caller declines to prune — a short sync is harmless, a sync that
+// never returns is what took the nightly job down.
+const SCAN_BUDGET_MS = 4 * 60 * 1000;
 const NO_EXPIRY = "2099-12-31";     // matches impactClient's sentinel
 
 const ENDPOINTS = {
@@ -170,9 +176,21 @@ async function fetchJoinedProgrammes({ token, publisherId }) {
 // feed gets paged and filtered here. ~32k rows at 200 a page is ~160 requests
 // on a nightly job, which is acceptable; what isn't acceptable is importing
 // 32,000 promotions from programmes we haven't joined and can't earn on.
+// Returns { rows, complete }. The flag is load-bearing: the caller prunes
+// anything not in the result, so pruning against a partial scan would delete
+// deals whose promotions were simply on a page we never read. A short page
+// mid-scan — which this endpoint produces when it's having a bad day — used
+// to end the loop and look exactly like a finished one.
 async function fetchAllPromotions({ token, publisherId }) {
   const rows = [];
+  let complete = false;
+  const deadline = Date.now() + SCAN_BUDGET_MS;
+
   for (let page = 1; page <= MAX_PAGES; page++) {
+    if (Date.now() > deadline) {
+      console.warn(`Awin: scan budget spent after ${rows.length} promotions; not pruning this run.`);
+      break;
+    }
     const payload = await awinFetch(ENDPOINTS.promotions(publisherId), token, {
       method: "POST",
       body: { filters: {}, pagination: { page, pageSize: PAGE_SIZE } }
@@ -181,10 +199,11 @@ async function fetchAllPromotions({ token, publisherId }) {
     rows.push(...batch);
 
     const total = payload?.pagination?.total;
+    // Only a row count that reaches the reported total means we saw it all.
+    if (Number.isFinite(total) && rows.length >= total) { complete = true; break; }
     if (batch.length < PAGE_SIZE) break;
-    if (Number.isFinite(total) && rows.length >= total) break;
   }
-  return rows;
+  return { rows, complete };
 }
 
 async function fetchAwinDeals() {
@@ -198,11 +217,13 @@ async function fetchAwinDeals() {
   // nothing matches — so don't make them.
   if (programmes && programmes.length === 0) {
     console.log("Awin: no joined programmes yet, skipping the promotions feed.");
-    return [];
+    // complete:true — we know with certainty there is nothing, which is a
+    // different statement from "the scan didn't finish".
+    return { deals: [], complete: true };
   }
 
   const programmesById = new Map((programmes || []).map(p => [String(p.id), p]));
-  const promotions = await fetchAllPromotions(creds);
+  const { rows: promotions, complete } = await fetchAllPromotions(creds);
 
   const deals = promotions
     // joined is the whole filter: without it this imports the entire network.
@@ -217,7 +238,7 @@ async function fetchAwinDeals() {
     .filter(d => d.discount || d.code)
     .filter(d => !isBlockedAdvertiser(d.store, `${d.title} ${d.description}`, d.logoDomain));
 
-  return capPerAdvertiser(dedupeIdenticalOffers(deals));
+  return { deals: capPerAdvertiser(dedupeIdenticalOffers(deals)), complete };
 }
 
 module.exports = { fetchAwinDeals, mapPromotionToDeal, servesUs, ENDPOINTS, NO_EXPIRY };

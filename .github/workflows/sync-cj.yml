@@ -15,10 +15,15 @@ env:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    # Without this a hung request sits on a runner until GitHub's six-hour
+    # default kills it, and a daily job doing that eats a month of Actions
+    # minutes. The sync itself is seconds of work; ten minutes is already
+    # generous.
+    timeout-minutes: 10
     steps:
       - name: Trigger CJ sync
         run: |
-          response=$(curl -s -w "\n%{http_code}" -X POST "$SITE_URL/api/cron/sync-cj" \
+          response=$(curl -s --max-time 540 -w "\n%{http_code}" -X POST "$SITE_URL/api/cron/sync-cj" \
             -H "X-Cron-Secret: ${{ secrets.CRON_SECRET }}")
           http_code=$(echo "$response" | tail -n1)
           body=$(echo "$response" | sed '$d')

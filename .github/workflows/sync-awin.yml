@@ -1,0 +1,36 @@
+name: Sync Awin deals
+
+# Separate from the nightly CJ/Impact sync, and far less frequent, because
+# Awin exposes no working server-side filter on its promotions endpoint: the
+# only way to find offers for our joined programmes is to page the entire
+# ~32,000-row feed, roughly 160 requests against an endpoint that 500s
+# intermittently. That belongs nowhere near a job that also has to finish two
+# other network syncs and a dead-link sweep inside one HTTP request.
+#
+# Weekly is enough. Awin deals change slowly, and a joined programme with no
+# promotions — which is most of them — produces nothing however often it runs.
+
+on:
+  schedule:
+    - cron: "0 15 * * 1" # Mondays, 15:00 UTC
+  workflow_dispatch: {}
+
+env:
+  SITE_URL: https://offermediscounts.onrender.com
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Trigger Awin sync
+        run: |
+          response=$(curl -s --max-time 900 -w "\n%{http_code}" -X POST "$SITE_URL/api/cron/sync-awin" \
+            -H "X-Cron-Secret: ${{ secrets.CRON_SECRET }}")
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+          echo "$body"
+          if [ "$http_code" -ne 200 ]; then
+            echo "Awin sync failed with HTTP $http_code"
+            exit 1
+          fi

@@ -373,10 +373,19 @@ async function runAwinSync() {
     return { skipped: "not configured" };
   }
   try {
-    const deals = await resolveCategories(await fetchAwinDeals());
+    const { deals: fetched, complete } = await fetchAwinDeals();
+    const deals = await resolveCategories(fetched);
     const result = await upsertAwinDeals(deals);
-    const pruned = await pruneAwinDeals(deals.map(d => d.awinPromotionId));
-    return { ...result, pruned };
+
+    // Pruning deletes every Awin row the sync didn't offer, so it may only
+    // run on a scan that actually reached the end of the feed. A partial
+    // read looks identical to "these deals are gone" and would delete live
+    // offers whose promotions sat on a page we never got to.
+    const pruned = complete
+      ? await pruneAwinDeals(deals.map(d => d.awinPromotionId))
+      : { removed: 0, skipped: "incomplete scan" };
+
+    return { ...result, pruned, complete };
   } catch (err) {
     console.error("Awin sync error:", err.message);
     return { error: err.message };
@@ -410,6 +419,18 @@ router.post("/deals/sync-awin", requireAdmin, async (req, res) => {
   res.json({ success: !result.error, ...result });
 });
 
+// Awin runs on its own, less frequent schedule rather than inside the nightly
+// sync. Awin publishes no server-side filter that works, so finding the
+// offers belonging to our handful of joined programmes means paging the
+// entire ~32,000-row feed: about 160 requests against an endpoint that 500s
+// intermittently, and minutes of wall time. Folding that into the nightly job
+// made one HTTP request responsible for two other network syncs, a dead-link
+// sweep and that — far longer than any sensible client timeout.
+router.post("/cron/sync-awin", requireCronSecret, async (req, res) => {
+  const result = await runAwinSync();
+  res.json({ success: !result.error, ...result });
+});
+
 // Same sync, plus a dead-link sweep, triggered by a scheduled job instead
 // of the admin dashboard — see .github/workflows/sync-cj.yml. The link
 // check can take a while (network round-trips to every merchant site), so
@@ -420,13 +441,12 @@ router.post("/cron/sync-cj", requireCronSecret, async (req, res) => {
     const syncResult = await upsertCjDeals(cjDeals);
     const cjPruned = await pruneCjDeals(cjDeals.map(d => d.cjLinkId));
     const impactResult = await runImpactSync();
-    const awinResult = await runAwinSync();
     // Link checking runs after both syncs so newly-arrived deals from either
     // network are covered by the same sweep.
     const linkCheckResult = await checkAndPruneDeadLinks();
     const blockedResult = await purgeBlockedDeals();
     const expiredResult = await purgeExpiredDeals();
-    res.json({ success: true, ...syncResult, impact: impactResult, awin: awinResult, linkCheck: linkCheckResult, cjPruned, blocked: blockedResult, expired: expiredResult });
+    res.json({ success: true, ...syncResult, impact: impactResult, linkCheck: linkCheckResult, cjPruned, blocked: blockedResult, expired: expiredResult });
   } catch (err) {
     console.error("Cron sync error:", err.message);
     res.status(500).json({ success: false, error: err.message });
