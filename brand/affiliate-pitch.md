@@ -39,11 +39,15 @@ have.
 
 ### 1,000 characters (972 — Awin's Join Program limit)
 
-Replace `[BRAND]`. Fits even with a long brand name substituted.
+Replace `[BRAND]` and nothing else — it is the only placeholder. An earlier
+draft also had a literal `<brand>` inside the quoted search term, which in a
+sent message reads as a mail merge that failed. The quote now names Marmot,
+matching the URL beside it, so the sentence demonstrates the claim instead of
+describing it. 964 characters; 984 with a long brand name substituted.
 
 > We're a US coupon site listing only offers from direct network partnerships — nothing scraped, no invented codes.
 >
-> This is the format every retailer gets: offermediscounts.com/marmot-coupons — a dedicated page carrying that brand's live offers, built to rank for "&lt;brand&gt; coupon code". [BRAND] would get the same once your offers sync.
+> This is the format every retailer gets: offermediscounts.com/marmot-coupons — a dedicated page carrying their live offers, built to rank for "Marmot coupon code". [BRAND] would get the same once your offers sync.
 >
 > The listing is the hook; the asset is a verified, opted-in SMS audience. Codes unlock only after a one-time phone verification, so they never appear in page source or our API and can't be scraped and burnt out. Subscribers then separately opt in to future offers and tell us which categories they want, so a new promotion reaches the subscribers who named your category rather than the whole list. TCPA compliant, STOP/HELP handled, opt-in flow documented at offermediscounts.com/opt-in-proof.html
 >
