@@ -21,23 +21,67 @@ because the rest of it holds up.
    and agreeing to one you haven't read is how a programme gets terminated
    later.
 
-## Programme application message (Awin's limit is 1,000 characters)
+## Three lengths
 
-Replace `[BRAND]`. **Do not promise a `/[brand]-coupons` URL** — that page
-can't exist before their deals sync, and a manager who clicks it gets a 404.
-An earlier version of this message did exactly that, and the first Awin
-rejection came back as "URL is irrelevant to advertiser brand". Point at a
-page that already works instead.
+Pick by the field's limit. **In all of them the `marmot-coupons` URL is a
+page that actually resolves** — never promise `/[brand]-coupons`, which
+can't exist before their deals sync. An early version did, a manager
+presumably clicked it and got a 404, and the first Awin rejection came back
+as "URL is irrelevant to advertiser brand".
+
+### 500 characters (498)
+
+Drops the `[BRAND]` personalisation to keep the brand-safety line, which is
+the claim most coupon sites can't make and the objection managers actually
+have.
+
+> We're a US coupon site listing only offers from direct CJ, Impact and Awin partnerships — nothing scraped, no invented codes. Every retailer gets a page like offermediscounts.com/marmot-coupons, built to rank for their coupon terms. Codes unlock only after a one-time SMS verification, so they never reach page source or our API and can't be scraped and burnt out. Tobacco, adult and cannabis advertisers are excluded by policy. TCPA compliant, opt-in flow at offermediscounts.com/opt-in-proof.html
+
+### 1,000 characters (972 — Awin's Join Program limit)
+
+Replace `[BRAND]`. Fits even with a long brand name substituted.
 
 > We're a US coupon site listing only offers from direct network partnerships — nothing scraped, no invented codes.
 >
 > This is the format every retailer gets: offermediscounts.com/marmot-coupons — a dedicated page carrying that brand's live offers, built to rank for "&lt;brand&gt; coupon code". [BRAND] would get the same once your offers sync.
 >
-> Codes are released only after a one-time SMS verification, so they never appear in page source, our API or our structured data — they can't be scraped and burnt out. Verified subscribers can separately opt in to future matching offers by SMS. TCPA compliant, STOP/HELP handled, opt-in flow documented at offermediscounts.com/opt-in-proof.html
+> The listing is the hook; the asset is a verified, opted-in SMS audience. Codes unlock only after a one-time phone verification, so they never appear in page source or our API and can't be scraped and burnt out. Subscribers then separately opt in to future offers and tell us which categories they want, so a new promotion reaches the subscribers who named your category rather than the whole list. TCPA compliant, STOP/HELP handled, opt-in flow documented at offermediscounts.com/opt-in-proof.html
 >
 > We're early — recently launched, growing through organic search — so I'd rather be upfront than oversell.
 >
 > partners@offermediscounts.com
+
+### Long form (468 words)
+
+For a long application field or a direct email to an affiliate manager. Drop
+the bold headers if the field is plain text.
+
+> OfferMeDiscounts.com is a US coupon and deals site built on a simple premise: people shouldn't have to hunt for a discount. Visitors tell us what they're into, and we surface — and text — the offers that match.
+>
+> **Where the offers come from.** Every offer comes from a direct affiliate partnership through CJ, Impact or Awin. Nothing is scraped from other coupon sites, and no code is invented, guessed at or crowdsourced. That keeps the catalog smaller than an aggregator's — we only list brands we actually have a relationship with — and it means every code on the page came from the advertiser who issued it.
+>
+> **What a partnership looks like.** Each retailer gets a dedicated page carrying their live offers, built to rank for "&lt;brand&gt; coupon code". offermediscounts.com/marmot-coupons is the current format. Offers also appear in the main deal feed and in category browsing. The catalog re-syncs daily, so expired promotions come down on their own rather than accumulating.
+>
+> **The asset is an opted-in SMS audience.** The listing is the acquisition hook; what we're building is a verified, permission-based messaging audience. Codes are released only after a one-time phone verification. They never appear in page source, in our public API, or in structured data — which is how they keep working instead of being scraped and burnt out within days of going live. Verified subscribers then separately opt in to future offers and tell us which categories they care about, so a new promotion reaches the subscribers who named that category rather than the whole list.
+>
+> **Compliance.** Express written consent, collected as a distinct, unchecked step that is never bundled into the verification. STOP and HELP are handled, and the number is a carrier-vetted toll-free line. The full opt-in flow is documented publicly at offermediscounts.com/opt-in-proof.html if you want to review it before approving.
+>
+> **Brand adjacency.** Advertisers are filtered before anything reaches the site. Tobacco and vape, adult products, cannabis and sexual-health categories are excluded by policy — partly because carriers restrict that content on messaging channels, and partly because your offer shouldn't sit next to it. Per-advertiser caps and duplicate collapsing stop any single merchant dominating a page.
+>
+> **Link integrity.** Every outbound link is followed to the retailer's own site daily, and anything that fails twice running is removed. Dead codes are the usual complaint about coupon sites; this is how we keep them off ours.
+>
+> **Where we are.** We're early. The site launched recently and grows through organic search on per-retailer pages. I'd rather be upfront about scale than oversell it: the mechanism is built and live, the audience is still small, and partners who join now get a dedicated page from day one rather than waiting in a queue behind a thousand merchants.
+>
+> Happy to answer questions or walk through the opt-in flow.
+>
+> partners@offermediscounts.com
+
+### The one line to hold
+
+If a manager asks how many SMS subscribers there are, answer honestly. Every
+version above describes the **mechanism**, which is built and verifiable, not
+an **audience**, which is currently zero verified numbers. The "we're early"
+line exists so that answer isn't a surprise.
 
 817 characters, 837 with a long brand name substituted.
 
