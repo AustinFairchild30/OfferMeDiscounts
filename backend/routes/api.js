@@ -233,7 +233,7 @@ router.post("/deals/search", searchLimiter, async (req, res) => {
     // the cost of making them wait for the answer. Internal sessions are
     // excluded for the same reason they're excluded from the funnel — the
     // search log is meant to show what real visitors couldn't find.
-    if (!isInternal(req)) {
+    if (!isInternal(req) && !isBot(req)) {
       recordSearch(query, matched.length, mode).catch(err =>
         console.error("Search logging error:", err.message)
       );
@@ -527,6 +527,19 @@ router.get("/health", (req, res) => {
 // clears storage (that's how you get back to a first-time view), which would
 // silently switch tracking back on at the exact moment you're generating the
 // most noise. httpOnly so the page can't clear it either.
+// Crawlers that execute JavaScript fire these events like any browser, and
+// a crawler following the "Get code" links on a store page lands on
+// /?deal=<id>, which opens the deal modal and records a deal_view. That is
+// exactly the shape the numbers took once crawling picked up: a flood of
+// referrer-less visits with an 80% deal-view rate and not one phone entry.
+// Left alone it makes the funnel unreadable in the same way internal traffic
+// did — worse, because it looks like success.
+const BOT_UA = /bot|crawl|spider|slurp|bingpreview|headlesschrome|phantomjs|puppeteer|playwright|lighthouse|facebookexternalhit|embedly|preview|monitor|uptime|curl|wget|python-requests|axios|go-http-client|java\/|scrapy|semrush|ahrefs|mj12|dotbot|petalbot|bytespider|gptbot|claudebot|ccbot|perplexity/i;
+
+function isBot(req) {
+  return BOT_UA.test(String(req.get("user-agent") || ""));
+}
+
 const INTERNAL_COOKIE = "omd_internal";
 const INTERNAL_TTL_MS = 1000 * 60 * 60 * 24 * 730; // 2 years
 
@@ -562,6 +575,7 @@ router.get("/internal-traffic", (req, res) => {
 
 router.post("/track", trackLimiter, async (req, res) => {
   if (isInternal(req)) return res.json({ ok: true, skipped: "internal" });
+  if (isBot(req)) return res.json({ ok: true, skipped: "bot" });
   try {
     await recordEvent({
       visitorId: req.body?.visitorId,
