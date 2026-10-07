@@ -55,6 +55,24 @@ function safeTitle(deal) {
   return redactCodes(deal.title, deal.code);
 }
 
+// A store page with one offer is a headline, a single row and the same
+// boilerplate as 41 others — 16 of 42 stores are in that state right now.
+// A set of near-identical thin pages is what Google's thin-content handling
+// is built to catch, and the risk isn't that they rank badly on their own:
+// it's that they drag on how the site is judged as a whole, including the
+// pages that do have something to say.
+//
+// So they stay noindex until a store has two offers, and stay out of the
+// sitemap while they are. They remain fully browsable and linked — this is
+// about what a crawler is asked to index, not about hiding anything from a
+// visitor. The moment a store gains a second deal it becomes indexable and
+// enters the sitemap on the next build, with no intervention.
+const MIN_DEALS_TO_INDEX = 2;
+
+function isIndexableStore(storeDeals) {
+  return (storeDeals || []).length >= MIN_DEALS_TO_INDEX;
+}
+
 function displayableDeals(deals) {
   const today = new Date().toISOString().slice(0, 10);
   return deals.filter(d => d.discount && d.expires >= today);
@@ -165,7 +183,10 @@ function sitemapXml(deals) {
     // field is honest, and an inaccurate one is worse than none — Google
     // only trusts lastmod when it's consistently accurate.
     { loc: "/about.html", priority: "0.5", changefreq: "monthly", lastmod: null },
+    // Submitting a noindex URL in a sitemap asks a crawler to fetch a page
+    // and then tells it not to index what it fetched. Leave them out.
     ...[...byStore.keys()]
+      .filter(store => isIndexableStore(byStore.get(store)))
       .sort()
       .map(store => ({
         loc: storePath(store),
@@ -200,6 +221,8 @@ module.exports = {
   storePath,
   displayableDeals,
   storesFrom,
+  isIndexableStore,
+  MIN_DEALS_TO_INDEX,
   safeTitle,
   categoryOf,
   relatedStores,

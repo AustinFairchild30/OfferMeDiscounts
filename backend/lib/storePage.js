@@ -1,4 +1,4 @@
-const { escapeHtml, storePath, safeTitle, SITE_ORIGIN } = require("./seo");
+const { escapeHtml, storePath, safeTitle, isIndexableStore, SITE_ORIGIN } = require("./seo");
 
 const MONTHS = ["January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December"];
@@ -100,6 +100,7 @@ function renderStorePage(store, deals, related = null) {
 <title>${escapeHtml(title)}</title>
 <meta name="description" content="${escapeHtml(description)}" />
 <link rel="canonical" href="${canonical}" />
+${isIndexableStore(deals) ? "" : '<meta name="robots" content="noindex,follow" />\n'}
 <meta property="og:type" content="website" />
 <meta property="og:title" content="${escapeHtml(title)}" />
 <meta property="og:description" content="${escapeHtml(description)}" />
