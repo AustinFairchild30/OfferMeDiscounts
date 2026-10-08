@@ -603,8 +603,15 @@ function offerLine(deal) {
   let text = (deal.title || "").trim();
   if (!text) return "";
 
+  // Affiliate creatives arrive as filenames — "CMH_20%_728X90",
+  // "...Mujeres)_970x250". Underscore is a word character, so every \b in
+  // the checks below silently fails against them, and the underscores
+  // themselves survive the punctuation strip and pad the residue over its
+  // threshold. Treating them as separators first fixes both.
+  text = text.replace(/_+/g, " ").replace(/\s{2,}/g, " ").trim();
+
   // Banner dimensions in the link name, e.g. "Winebasket120x600".
-  if (/\b\d{2,4}\s*[x\u00d7]\s*\d{2,4}\b/.test(text)) return "";
+  if (/\b\d{2,4}\s*[x\u00d7]\s*\d{2,4}\b/i.test(text)) return "";
 
   // Affiliate link names are stacked prefixes — "Miles District - Text Link -
   // 10% Off First Order" carries the store name (already the card's heading)

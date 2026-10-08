@@ -25,7 +25,16 @@ const { escapeHtml, storePath, safeTitle, displayableDeals } = require("./seo");
 function offerLine(deal) {
   let text = safeTitle(deal).trim();
   if (!text) return "";
-  if (/\b\d{2,4}\s*[x×]\s*\d{2,4}\b/.test(text)) return "";
+
+  // Affiliate creatives arrive as filenames — "CMH_20%_728X90",
+  // "...Mujeres)_970x250". Underscore is a word character, so every \b in the
+  // checks below silently fails against them, and the underscores themselves
+  // survive the punctuation strip and pad the residue over its threshold.
+  // Treating them as separators first fixes both.
+  text = text.replace(/_+/g, " ").replace(/\s{2,}/g, " ").trim();
+
+  // Case-insensitive: the banner sizes are written 728X90 as often as 728x90.
+  if (/\b\d{2,4}\s*[x×]\s*\d{2,4}\b/i.test(text)) return "";
 
   // Affiliate link names are stacked prefixes — "Miles District - Text Link -
   // 10% Off First Order" carries the store name (already the card's heading)
