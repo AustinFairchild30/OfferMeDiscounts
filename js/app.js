@@ -709,6 +709,7 @@ function formatDate(iso) {
 }
 
 function renderCategoryBar() {
+  renderSortBar();
   const bar = document.getElementById("categoryBar");
   const groups = groupsInCatalog();
   const chips = [["All", displayableDeals().length], ...groups];
@@ -800,7 +801,59 @@ function interleaveByStore(deals) {
 // group still internally shuffled/interleaved by store, so it's "your
 // matches first" layered on top of the discovery shuffle, not a full
 // replacement of it.
+// "Matched" is the default and does the personalisation work below. The two
+// explicit sorts override it entirely — someone who asks for the biggest
+// discount wants the biggest discount, not the biggest discount among brands
+// we think they like.
+let activeSort = "matched";
+
+function setSort(sort) {
+  activeSort = sort;
+  resetDealPaging();
+  renderSortBar();
+  renderDeals();
+}
+
+function renderSortBar() {
+  const bar = document.getElementById("sortBar");
+  if (!bar) return;
+  const options = [
+    ["matched", "Best match"],
+    ["discount", "Biggest discount"],
+    ["ending", "Ending soon"]
+  ];
+  bar.innerHTML = options
+    .map(([key, label]) =>
+      `<button type="button" class="sort-chip${activeSort === key ? " active" : ""}" onclick="setSort('${key}')">${label}</button>`
+    )
+    .join("");
+}
+
+// Deals with no believable end date sort last rather than first. expiryLabel
+// returns null for the far-future sentinels, and treating "no deadline" as
+// "most urgent" would put every 2099 row at the top of Ending soon.
+function daysUntilExpiry(deal) {
+  const label = expiryLabel(deal.expires);
+  if (!label) return Infinity;
+  const dt = new Date(deal.expires + "T00:00:00");
+  const now = new Date();
+  return Math.round((dt - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
+}
+
 function orderDeals(deals) {
+  if (activeSort === "discount") {
+    return [...deals].sort(
+      (a, b) =>
+        discountValue(b.discount) - discountValue(a.discount) ||
+        String(a.store).localeCompare(String(b.store))
+    );
+  }
+  if (activeSort === "ending") {
+    return [...deals].sort(
+      (a, b) => daysUntilExpiry(a) - daysUntilExpiry(b) || discountValue(b.discount) - discountValue(a.discount)
+    );
+  }
+
   const scores = activeScores();
   if (!Object.keys(scores).length) return interleaveByStore(deals);
 

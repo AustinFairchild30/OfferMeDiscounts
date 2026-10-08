@@ -584,6 +584,29 @@ nav.header-nav a:hover { color: #f3f0f8; }
 /* Featured strip */
 .featured-strip .deal-card { border-color: #ffcdd5; }
 
+/* Sort controls. Deliberately lighter than the category chips: category is
+   the primary filter and sort is a refinement, so they shouldn't compete for
+   the same attention directly beneath each other. */
+.sort-bar {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin: -14px 0 22px;
+  flex-wrap: wrap;
+}
+.sort-chip {
+  border: none;
+  background: none;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 12px;
+  border-radius: 999px;
+  min-height: 36px;
+}
+.sort-chip:hover { color: var(--ink); background: var(--card); }
+.sort-chip.active { color: var(--brand-mint); background: var(--brand-mint-soft); }
+
 /* Load more */
 .load-more-wrap {
   display: flex;
