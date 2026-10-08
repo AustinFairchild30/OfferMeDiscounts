@@ -642,6 +642,19 @@ function offerLine(deal) {
 // own no-expiry sentinel is 2099-12-31. Printing "Expires Dec 31" for those
 // invents a deadline that isn't real, and on a coupon site a fake deadline is
 // the exact thing that costs you trust the first time someone notices.
+// A date only earns its place on the card when it changes what someone does.
+// "Ends Jan 1, 2027" in October tells a visitor they have fifteen months —
+// an explicit invitation to come back later, printed on the one line meant to
+// get them moving. 47 of 112 deals were in that band.
+//
+// So the label appears only inside a month, and goes coral inside a
+// fortnight. Beyond that the slot stays empty, which is honest in a way the
+// far-off date wasn't: we aren't claiming a deadline, and we aren't handing
+// out a reason to wait either. This also subsumes the old two-year sentinel
+// rule — anything that far out is already past the window.
+const EXPIRY_WINDOW_DAYS = 30;
+const EXPIRY_URGENT_DAYS = 14;
+
 function expiryLabel(iso) {
   const dt = new Date(iso + "T00:00:00");
   if (Number.isNaN(dt.getTime())) return null;
@@ -649,12 +662,11 @@ function expiryLabel(iso) {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const days = Math.round((dt - today) / 86400000);
-  if (days < 0) return null;
-  if (dt.getFullYear() - today.getFullYear() >= 2) return null;
+  if (days < 0 || days > EXPIRY_WINDOW_DAYS) return null;
 
   if (days === 0) return { text: "Ends today", urgent: true };
   if (days === 1) return { text: "Ends tomorrow", urgent: true };
-  if (days <= 14) return { text: `Ends in ${days} days`, urgent: true };
+  if (days <= EXPIRY_URGENT_DAYS) return { text: `Ends in ${days} days`, urgent: true };
 
   const sameYear = dt.getFullYear() === today.getFullYear();
   return {
