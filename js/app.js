@@ -954,7 +954,13 @@ function openDealModal(dealId) {
   document.getElementById("modalEmoji").innerHTML = dealLogoInnerHTML(deal);
   renderModalStoreLink(deal.store);
   document.getElementById("modalTitle").textContent = deal.title;
-  document.getElementById("modalStore").textContent = `${deal.store} · Expires ${formatDate(deal.expires)}`;
+  // Same rule as the tile: expiryLabel suppresses the far-future sentinels
+  // rather than printing a deadline that isn't real, and shows the year when
+  // it isn't this one. The modal used to say "Expires Jan 1" beside a tile
+  // reading "Ends Jan 1, 2027".
+  const modalExpiry = expiryLabel(deal.expires);
+  document.getElementById("modalStore").textContent =
+    modalExpiry ? `${deal.store} · ${modalExpiry.text}` : deal.store;
   document.getElementById("modalDesc").textContent = deal.description;
 
   const overlay = document.getElementById("modalOverlay");
@@ -1126,12 +1132,14 @@ async function submitOtp(e) {
     track("otp_verified", pendingDealId);
     const revealData = { code: data.code, link: data.link, message: data.message, note };
 
-    if (isFirstRegistration) {
-      showSurveyStep(phone, revealData);
-    } else {
-      populateRevealStep(revealData);
-      showStep("stepReveal");
-    }
+    // The code first, always. The survey used to sit between verification and
+    // the reveal, which put a form in front of someone who had just proved
+    // their number and was one tap from what they came for. On a first unlock
+    // it's now offered from the reveal step instead, where the person asking
+    // has already been paid.
+    populateRevealStep(revealData);
+    showStep("stepReveal");
+    if (isFirstRegistration) armSurveyInvite(phone, revealData);
     return;
   }
 
@@ -1171,7 +1179,19 @@ function populateRevealStep(revealData) {
 let pendingSurveyPhone = null;
 let pendingRevealData = null;
 
-function showSurveyStep(phone, revealData) {
+// Prepares the survey without showing it, and reveals the invitation that
+// sits under the code.
+function armSurveyInvite(phone, revealData) {
+  buildSurveyStep(phone, revealData);
+  const prompt = document.getElementById("revealSurveyPrompt");
+  if (prompt) prompt.style.display = "block";
+}
+
+function openSurveyFromReveal() {
+  showStep("stepSurvey");
+}
+
+function buildSurveyStep(phone, revealData) {
   pendingSurveyPhone = phone;
   pendingRevealData = revealData;
   const grid = document.getElementById("surveyCategories");
@@ -1195,7 +1215,8 @@ function showSurveyStep(phone, revealData) {
     </div>`;
   }).join("");
   document.getElementById("surveyBrandsInput").value = "";
-  showStep("stepSurvey");
+  // Built, not shown — openSurveyFromReveal() displays it once the code is
+  // on screen.
 }
 
 function toggleSurveyGroup(i) {
@@ -1273,9 +1294,13 @@ function skipSurvey() {
 }
 
 function finishSurvey() {
-  populateRevealStep(pendingRevealData);
+  // Back to the code, not onward to it — they already have it. The invitation
+  // is retired either way, so answering or skipping both end the same place.
+  if (pendingRevealData) populateRevealStep(pendingRevealData);
   pendingSurveyPhone = null;
   pendingRevealData = null;
+  const prompt = document.getElementById("revealSurveyPrompt");
+  if (prompt) prompt.style.display = "none";
   showStep("stepReveal");
 }
 

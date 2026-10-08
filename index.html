@@ -119,10 +119,14 @@
     <!-- Step 1: phone entry -->
     <div class="step active" id="stepPhone">
       <form onsubmit="submitPhone(event)">
-        <label class="field-label" for="phoneInput">Text your number to unlock this code</label>
+        <label class="field-label" for="phoneInput">Enter your number to unlock this code</label>
         <input class="text-input" id="phoneInput" type="tel" placeholder="(555) 123-4567" />
-        <button class="primary-btn" id="sendCodeBtn" type="submit">Text Me the Code</button>
-        <div class="disclaimer">We'll text a one-time verification code to confirm your number so you can view this discount code.</div>
+        <button class="primary-btn" id="sendCodeBtn" type="submit">Verify &amp; Unlock</button>
+        <div class="disclaimer">
+          One text to check it's really you, and the code appears right here. That's it —
+          we won't send you anything else unless you tick the box afterwards.
+          <a href="opt-in-proof.html" target="_blank" rel="noopener">See exactly what we send</a>.
+        </div>
       </form>
     </div>
 
@@ -151,7 +155,7 @@
         <div class="disclaimer" style="margin-top:6px;">We'll only use it to send you the codes you've unlocked. Your phone stays the main way we reach you.</div>
         <button class="primary-btn" type="submit">Save preferences</button>
       </form>
-      <button type="button" class="skip-link" onclick="skipSurvey()">Skip for now</button>
+      <button type="button" class="skip-link" onclick="skipSurvey()">Not now &mdash; back to my code</button>
     </div>
 
     <!-- Step 3: code reveal, styled as a received text message -->
@@ -169,6 +173,18 @@
         <input type="checkbox" id="revealMarketingConsentInput" onchange="handleRevealConsentToggle(event)" />
         <span>Text me more personalized deals like this (optional). Msg &amp; data rates may apply. Reply STOP anytime to opt out.</span>
       </label>
+      <!-- Shown only on a first unlock. The survey used to sit BETWEEN the
+           verification and the code: someone had proved their number, was one
+           tap from the thing they came for, and got a form instead. Asking
+           after they have the code puts the question to a person who is
+           pleased rather than one who is still waiting. -->
+      <div id="revealSurveyPrompt" style="display:none;">
+        <div class="sms-hint" style="margin-bottom:10px;">
+          Want the next ones to match? Tell us what you're into and we'll only
+          text you deals in those categories.
+        </div>
+        <button class="primary-btn" type="button" onclick="openSurveyFromReveal()" style="margin-bottom:12px;">Personalize my deals</button>
+      </div>
       <button class="primary-btn" onclick="closeModal()">Done</button>
     </div>
   </div>
