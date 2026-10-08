@@ -5,7 +5,7 @@
 const pool = require("../db/pool");
 const { isBlockedAdvertiser } = require("./cjClient");
 
-const COLUMNS = "id, title, brand, store, category, discount, code, description, expires, featured, emoji, link, source, logo_domain, logo_url, updated_at, impact_ad_id, awin_promotion_id";
+const COLUMNS = "id, title, brand, store, category, discount, code, description, expires, featured, emoji, link, source, logo_domain, logo_url, updated_at, created_at, impact_ad_id, awin_promotion_id";
 
 function rowToDeal(row) {
   return {
@@ -13,7 +13,8 @@ function rowToDeal(row) {
     expires: row.expires instanceof Date ? row.expires.toISOString().slice(0, 10) : row.expires,
     // Camel-cased for the sitemap's lastMod derivation; the raw column stays
     // on the object too, so nothing reading row shape directly breaks.
-    updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : row.updated_at
+    updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : row.updated_at,
+    createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at
   };
 }
 

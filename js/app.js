@@ -652,6 +652,19 @@ function offerLine(deal) {
 // far-off date wasn't: we aren't claiming a deadline, and we aren't handing
 // out a reason to wait either. This also subsumes the old two-year sentinel
 // rule — anything that far out is already past the window.
+const NEW_WINDOW_DAYS = 7;
+
+// Positive urgency, where the expiry label is negative urgency. It rewards
+// coming back and it rewards adding supply, and unlike a countdown it is
+// simply true. Expiry wins when both apply: "ends in 3 days" is the more
+// actionable of the two.
+function isNewDeal(deal) {
+  if (!deal.createdAt) return false;
+  const added = new Date(deal.createdAt);
+  if (Number.isNaN(added.getTime())) return false;
+  return (Date.now() - added.getTime()) / 86400000 <= NEW_WINDOW_DAYS;
+}
+
 const EXPIRY_WINDOW_DAYS = 30;
 const EXPIRY_URGENT_DAYS = 14;
 
@@ -708,7 +721,9 @@ function dealCardHTML(d) {
       </div>
       ${TASTE_REASONS[d.id] ? `<div class="match-reason">Because you like ${escapeHtml(TASTE_REASONS[d.id])}</div>` : ""}
       <div class="card-footer">
-        <span class="deal-expiry${expiry?.urgent ? " urgent" : ""}">${expiry ? escapeHtml(expiry.text) : ""}</span>
+        <span class="deal-expiry${expiry?.urgent ? " urgent" : ""}${!expiry && isNewDeal(d) ? " fresh" : ""}">${
+          expiry ? escapeHtml(expiry.text) : (isNewDeal(d) ? "New this week" : "")
+        }</span>
         <button class="get-code-btn" onclick="event.stopPropagation(); openDealModal('${d.id}')">${d.hasCode ? "Get Code" : "Get Deal"}</button>
       </div>
     </div>

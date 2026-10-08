@@ -64,6 +64,18 @@ function discountTier(discount) {
   return pct >= 50 || dollars >= 50 ? " strong" : "";
 }
 
+// Twin of isNewDeal() in js/app.js. The server has no expiry label to defer
+// to — it renders the slot empty and lets the client fill it on hydration —
+// so this is the only thing that can appear here before JS runs.
+const NEW_WINDOW_DAYS = 7;
+function isNewDeal(deal) {
+  const raw = deal.createdAt || deal.created_at;
+  if (!raw) return false;
+  const added = new Date(raw);
+  if (Number.isNaN(added.getTime())) return false;
+  return (Date.now() - added.getTime()) / 86400000 <= NEW_WINDOW_DAYS;
+}
+
 function discountValue(discount) {
   const match = String(discount || "").match(/(\d+(?:\.\d+)?)/);
   return match ? parseFloat(match[1]) : 0;
@@ -94,7 +106,7 @@ function cardHtml(deal) {
           ${offer ? `<p class="deal-offer">${escapeHtml(offer)}</p>` : ""}
         </div>
         <div class="card-footer">
-          <span class="deal-expiry"></span>
+          <span class="deal-expiry${isNewDeal(deal) ? " fresh" : ""}">${isNewDeal(deal) ? "New this week" : ""}</span>
           <span class="get-code-btn">${deal.code ? "Get Code" : "Get Deal"}</span>
         </div>
       </a>`;

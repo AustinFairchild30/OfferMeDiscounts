@@ -562,6 +562,8 @@ nav.header-nav a:hover { color: #f3f0f8; }
   text-overflow: ellipsis;
 }
 .deal-expiry.urgent { color: var(--brand-coral-dark); font-weight: 600; }
+/* Mint rather than coral: this is a reason to look, not a reason to hurry. */
+.deal-expiry.fresh { color: var(--brand-mint); font-weight: 600; }
 .get-code-btn {
   flex: none;
   white-space: nowrap;

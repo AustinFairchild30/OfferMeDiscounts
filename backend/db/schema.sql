@@ -149,6 +149,19 @@ CREATE TABLE IF NOT EXISTS advertiser_categories (
 -- Same role as cj_excluded_links, for the other network: deleting an
 -- Impact-sourced deal from the admin dashboard has to stick across syncs, or
 -- tomorrow's sync just puts it back.
+-- When a deal first appeared, for the "New this week" marker. updated_at
+-- can't serve: the daily sync rewrites it whenever any field moves, so a
+-- three-month-old deal whose discount changed yesterday would read as new.
+--
+-- Added nullable and backfilled before the default is set, so existing rows
+-- don't all claim to be new the moment the column exists. They're backfilled
+-- to 60 days ago rather than to updated_at — we genuinely don't know when we
+-- first saw them, and "not new" is the honest answer for every one of them.
+-- The UPDATE only touches NULLs, so re-running this is a no-op.
+ALTER TABLE deals ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ;
+UPDATE deals SET created_at = now() - interval '60 days' WHERE created_at IS NULL;
+ALTER TABLE deals ALTER COLUMN created_at SET DEFAULT now();
+
 -- Third network. Same shape as the other two rather than a generic
 -- (source, external_id) pair: the existing columns and their partial unique
 -- indexes already work, and changing that shape would mean migrating live
