@@ -722,6 +722,7 @@ function renderCategoryBar() {
 
 function setCategory(cat) {
   activeCategory = cat;
+  resetDealPaging();
   renderCategoryBar();
   renderDeals();
 }
@@ -851,13 +852,35 @@ function rankMatched(deals, scores) {
   return result;
 }
 
+// How many cards the grid shows before asking. Rendering all 115 made the
+// homepage 29,410px on a phone — a 36-screen scroll that nobody reaches the
+// end of, and a lot of DOM for a visitor who will decide in the first row.
+const DEALS_PER_PAGE = 24;
+let dealsShown = DEALS_PER_PAGE;
+
+// Any change to what's being shown — a category, a search, a taste pick —
+// starts the count over, or the visitor keeps whatever depth they had
+// scrolled to under a completely different set of deals.
+function resetDealPaging() {
+  dealsShown = DEALS_PER_PAGE;
+}
+
+function showMoreDeals() {
+  dealsShown += DEALS_PER_PAGE;
+  renderDeals();
+}
+
 function renderDeals() {
   const grid = document.getElementById("dealGrid");
   const countEl = document.getElementById("resultCount");
+  const moreWrap = document.getElementById("loadMoreWrap");
+  const moreBtn = document.getElementById("loadMoreBtn");
+  const hideMore = () => { if (moreWrap) moreWrap.hidden = true; };
 
   if (SEARCH_PENDING) {
     countEl.textContent = "Searching\u2026";
     grid.innerHTML = `<div class="empty-state"><span class="spinner"></span> Looking for "${escapeHtml(searchTerm)}"\u2026</div>`;
+    hideMore();
     return;
   }
 
@@ -884,9 +907,18 @@ function renderDeals() {
            <button type="button" class="chip" onclick="clearSearch()">Show all deals</button>
          </div>`
       : `<div class="empty-state">No deals in ${activeCategory}. <button type="button" class="chip" onclick="setCategory('All')">Show all deals</button></div>`;
+    hideMore();
     return;
   }
-  grid.innerHTML = deals.map(dealCardHTML).join("");
+
+  const visible = deals.slice(0, dealsShown);
+  grid.innerHTML = visible.map(dealCardHTML).join("");
+
+  const remaining = deals.length - visible.length;
+  if (moreWrap && moreBtn) {
+    moreWrap.hidden = remaining <= 0;
+    moreBtn.textContent = `Show ${Math.min(remaining, DEALS_PER_PAGE)} more deal${Math.min(remaining, DEALS_PER_PAGE) === 1 ? "" : "s"}`;
+  }
 }
 
 function escapeHtml(str) {
@@ -896,6 +928,7 @@ function escapeHtml(str) {
 }
 
 function clearSearch() {
+  resetDealPaging();
   searchTerm = "";
   SEARCH_RESULT_IDS = null;
   SEARCH_MODE = null;
@@ -905,6 +938,7 @@ function clearSearch() {
 
 async function handleSearch(e) {
   e.preventDefault();
+  resetDealPaging();
   searchTerm = document.getElementById("searchInput").value.trim();
   document.getElementById("browse").scrollIntoView({ behavior: "smooth" });
 

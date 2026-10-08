@@ -62,13 +62,34 @@
   </div>
 </section>
 
+
+<main class="wrap" id="browse">
+  <div class="section-head" style="margin-top:28px;">
+    <h2>🔥 Featured deals</h2>
+    <span>Today's biggest offers</span>
+  </div>
+  <div class="deal-grid featured-strip" id="featuredGrid"></div>
+
+  <div class="section-head">
+    <h2>All deals</h2>
+    <span id="resultCount"></span>
+  </div>
+  <div class="category-bar" id="categoryBar"></div>
+  <div class="deal-grid" id="dealGrid"></div>
+  <!-- Paging the grid rather than rendering all of it: every deal at once made
+       the page 29,410px tall on a phone, a 36-screen scroll. -->
+  <div class="load-more-wrap" id="loadMoreWrap" hidden>
+    <button type="button" class="load-more" id="loadMoreBtn" onclick="showMoreDeals()"></button>
+  </div>
+</main>
+
 <section class="how-it-works">
   <div class="wrap">
     <div class="how-steps">
       <div class="how-step">
         <div class="how-num">1</div>
         <h3>Tap what you like</h3>
-        <p>Start right above — no sign-up, nothing to fill in. The deals below reorder around your picks as you go.</p>
+        <p>Swipe the cards near the top — no sign-up, nothing to fill in. The deals reorder around your picks as you go.</p>
       </div>
       <div class="how-step">
         <div class="how-num">2</div>
@@ -84,20 +105,6 @@
   </div>
 </section>
 
-<main class="wrap" id="browse">
-  <div class="section-head" style="margin-top:28px;">
-    <h2>🔥 Featured deals</h2>
-    <span>Today's biggest offers</span>
-  </div>
-  <div class="deal-grid featured-strip" id="featuredGrid"></div>
-
-  <div class="section-head">
-    <h2>All deals</h2>
-    <span id="resultCount"></span>
-  </div>
-  <div class="category-bar" id="categoryBar"></div>
-  <div class="deal-grid" id="dealGrid"></div>
-</main>
 
 <footer class="site-footer">
   <div class="wrap">

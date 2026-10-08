@@ -584,6 +584,25 @@ nav.header-nav a:hover { color: #f3f0f8; }
 /* Featured strip */
 .featured-strip .deal-card { border-color: #ffcdd5; }
 
+/* Load more */
+.load-more-wrap {
+  display: flex;
+  justify-content: center;
+  margin: -24px 0 40px;
+}
+.load-more {
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 12px 26px;
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+  min-height: 44px;
+}
+.load-more:hover { border-color: var(--brand-coral); color: var(--brand-coral-dark); }
+
 /* Empty state */
 .empty-state {
   /* It sits inside .deal-grid, so without this it's squeezed into a single
