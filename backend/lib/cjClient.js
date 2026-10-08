@@ -199,7 +199,12 @@ const BLOCKED_ADVERTISERS = new Set([
   // Toys", Galaxy Treats sells "Edibles and Vapes" — hemp and mushroom
   // products. The sector label is where you would look and the last place
   // the answer is.
-  "adorime", "galaxy treats", "bestrealdoll"
+  "adorime", "galaxy treats", "bestrealdoll",
+  // Awin files this under Toys & Games as well. Its own site: "Premium
+  // eRigs" — concentrate vaporizers. Third time that sector has hidden
+  // something that isn't a toy, so the sector label is now worth nothing
+  // as a signal and only the site is.
+  "dr.dabber", "dr dabber", "drdabber"
 ]);
 
 // The domain is frequently more honest than the advertiser name. "Shenzhen
@@ -209,7 +214,7 @@ const BLOCKED_ADVERTISERS = new Set([
 // has been sanded smooth.
 const BLOCKED_DOMAINS = new Set([
   "stdcheck.com", "sourcemore.com",
-  "adorime.com", "galaxytreats.com", "bestrealdoll.com"
+  "adorime.com", "galaxytreats.com", "bestrealdoll.com", "drdabber.com"
 ]);
 
 // Matched against the STORE NAME, where a loose term is safe: no legitimate
@@ -217,14 +222,14 @@ const BLOCKED_DOMAINS = new Set([
 // name themselves plainly — Vapesourcing, Morevaping, Vapor Empire, Ejuice
 // Connect, Flawless Vape Shop, Portable Hookahs.
 const BLOCKED_STORE_PATTERN =
-  /vapor|vape|vaping|hookah|shisha|e-?juice|e-?liquid|e-?cig|tobacco|cigar|nicotine|snus|smoke\s?shop|porn|erotic|fetish|bdsm|dildo|vibrator|sex\s?(toy|doll|shop)|real\s?doll|love\s?doll|onlyfans|brothel|adult\s?(toy|store|shop|video|film)|cannabis|marijuana|\bthc\b|\bcbd\b|delta[\s-]?[89]\b|kratom|dispensary|hemp|psilocybin/i;
+  /vapor|vape|vaping|hookah|shisha|e-?juice|e-?liquid|e-?cig|tobacco|cigar|nicotine|snus|smoke\s?shop|porn|erotic|fetish|bdsm|dildo|vibrator|sex\s?(toy|doll|shop)|real\s?doll|love\s?doll|onlyfans|brothel|adult\s?(toy|store|shop|video|film)|cannabis|marijuana|\bthc\b|\bcbd\b|delta[\s-]?[89]\b|kratom|dispensary|hemp|psilocybin|dabber|e-?rig\b|dab\s?rig|bong\b/i;
 
 // Matched against the OFFER TEXT, where the same looseness would misfire.
 // Deliberately excludes "vapor" (a Vapormax sneaker deal), "smok" (smoked
 // salmon in Gourmet, a BBQ smoker in Home) and "puff" (puffer jackets, puff
 // pastry, powder puffs) — all of which appear in ordinary retail copy.
 const BLOCKED_SUBJECT_MATTER =
-  /\b(std|sti|hiv|herpes|chlamydia|gonorrhea|syphilis)\b|sexual(ly)?[\s-]?(health|transmitted)|\bviagra\b|\bcialis\b|erectile|\bescort\b|\b(vape|vapes|vaping|vaper|vapers)\b|\b(e-?juices?|e-?liquids?|e-?cigs?|e-?cigarettes?)\b|\b(tobacco|nicotine|hookah|shisha|cigarette|cigarettes|cigar|cigars|snus)\b|\b(porn|erotic|fetish|bdsm|dildos?|vibrators?|condoms?)\b|\bmasturbat|\bsex\s?(toys?|dolls?)\b|\b(cannabis|marijuana|thc|cbd|kratom|psilocybin)\b|\bdelta[\s-]?[89]\b/i;
+  /\b(std|sti|hiv|herpes|chlamydia|gonorrhea|syphilis)\b|sexual(ly)?[\s-]?(health|transmitted)|\bviagra\b|\bcialis\b|erectile|\bescort\b|\b(vape|vapes|vaping|vaper|vapers)\b|\b(e-?juices?|e-?liquids?|e-?cigs?|e-?cigarettes?)\b|\b(tobacco|nicotine|hookah|shisha|cigarette|cigarettes|cigar|cigars|snus)\b|\b(porn|erotic|fetish|bdsm|dildos?|vibrators?|condoms?)\b|\bmasturbat|\bsex\s?(toys?|dolls?)\b|\b(cannabis|marijuana|thc|cbd|kratom|psilocybin|bong|bongs)\b|\bdelta[\s-]?[89]\b|\b(dab|e)[\s-]?rigs?\b/i;
 
 function isBlockedAdvertiser(store, text = "", domain = "") {
   const name = String(store || "").trim().toLowerCase();
