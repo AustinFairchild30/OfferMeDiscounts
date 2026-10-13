@@ -1,65 +1,62 @@
 # Awin target shortlist
 
-Generated from the live account on 2026-10-02: 30,487 promotions
-scanned, 2,382 advertisers left after keeping only those with a
-US-serving voucher and dropping anything the blocklist rejects or that is a
-regional duplicate (`uk`, `(DE)`, `EUR`, `ROW`…).
+Rebuilt 2026-10-13 from **real voucher counts** — 31,210 promotions
+scanned, every advertiser with at least one US-serving voucher.
 
-**Do not rank by voucher count.** Sorted that way the top of the network is
-vape sellers and dropship marketplaces. Branded search demand is what makes a
-store page earn traffic, and it is close to inversely correlated with how
-aggressively an advertiser floods the promotions feed. Perdue Farms has 5
-vouchers and is a better target than an advertiser with 300.
+Earlier versions of this file ranked by category inference because I believed
+the promotions endpoint was down. It wasn't: my probes used `pageSize: 5`,
+below the API's minimum of 10, and Awin answers that with a 500 rather than a
+400. See the header of `backend/lib/awinClient.js`.
 
-Search the Advertiser Directory by name and check the ID before joining —
-several programmes share near-identical names, and the regional twin's offers
-get discarded by the US filter anyway.
+Excluded here: the 25 programmes already joined, every advertiser
+previously recommended, known rejections, regional duplicates, anything the
+blocklist rejects, and advertisers with zero US vouchers.
 
-## Tier 1 — apply first
+## Do not apply — zero US vouchers
 
-Real branded search, and each opens a category the catalog can't stock today.
+These were recommended in earlier batches on category inference and have **no
+coupon inventory at all**. Approval produces nothing, which is the King Koil
+outcome 40 times over.
 
-| Advertiser | Awin ID | Category | US vouchers | Site |
+> ANRAN, AoonuAuto, AutoPartsToys, Bambu Lab, ChessHouse, Comgrow, Dabbsson, De'Longhi, Dmoose, EKR, Fera Pets, Glass.com, Goplus, GritrOutdoors, HULKMAN, Hobbytron, ISOtunes, Jasco, Kaabo, KastKing, Mi Rancho, Nicecnc, Perfect Snacks, PetLab Co, Pupford, Qidi Tech, RadioFence, Redodo, SEALIGHT, Saris, TORRO, Thinkcar, Unistellar, Viking Bags, Wham-O, Wuffes, Wurth USA, Xtrons, labworkauto, meowbox
+
+## Targets, by verified US voucher count
+
+| Advertiser | Awin ID | US vouchers | Category | Site |
 |---|---|---|---|---|
-| Perdue Farms | `91175` | Food | 5 | https://www.perduefarms.com?src=SAS |
-| SAS 151515 - Peanut Butter & Co. | `74128` | Food | 106 | https://www.ilovepeanutbutter.com |
-| UGREEN (Global) | `90851` | Electronics | 32 | https://ugreen.com |
-| CREALITY 3D TECHNOLOGY LLC | `69964` | Electronics | 17 | https://www.crealityfalcon.com/ |
-| BLUETTI US | `59271` | Electronics | 8 | https://www.bluettipower.com |
-| INIU | `62773` | Electronics | 9 | https://iniushop.com |
-| Petmate | `89913` | Pets | 3 | https://www.petmate.com |
-| Tuft & Paw | `59149` | Pets | 3 | https://www.tuftandpaw.com/ |
-| Badlands Ranch (US) | `75220` | Pets | 1 | https://badlandsranch.com/ |
-| Piscifun | `89509` | Sports | 30 | https://www.piscifun.com |
-| Sunday Golf | `95817` | Sports | 19 | https://www.sundaygolf.com |
-| Autel | `72577` | Automotive | 3 | https://store.autelenergy.com |
+| Hernest | Home Decor (US) | `58525` | 100 | Home & Garden | hernest.com |
+| PetPlate | `70899` | 79 | Home & Garden | petplate.com |
+| Sephra LP | `88379` | 72 | FMCG | sephrausa.com |
+| Clever Fox | `95765` | 65 | Gifts & Flowers | cleverfoxplanner.com |
+| Joy Organics | `91727` | 56 | Health & Beauty | joyorganics.com |
+| HTVRont | `68106` | 52 | Home & Garden | htvront.com |
+| The Trusted Lab | `82765` | 31 | Health & Beauty | thetrustedlab.com |
+| Greetabl | `90201` | 31 | Gifts & Flowers | greetabl.com |
+| Fontana Candle Co. | `92227` | 28 | Home & Garden | fontanacandlecompany.com |
+| mindbodygreen | `81633` | 27 | Health & Beauty | shop.mindbodygreen.com |
+| Apothékary | `58777` | 25 | Health & Beauty | apothekary.com |
+| Subset | `86665` | 24 | Clothing | wearsubset.com |
+| Big Horn Outdoors | `117809` | 22 | White Goods | bighornoutdoor.com |
+| Case Luggage | `121020` | 22 | Home & Garden | caseluggage.com |
+| Ice Barrel | `82317` | 22 | Health & Beauty | icebarrel.com |
+| AlorairCrawlspace | `104549` | 19 | Home & Garden | aloraircrawlspace.com |
+| Vooglam | `90179` | 18 | Clothing Accessories | vooglam.com |
+| BUILT (US) | `87269` | 18 | Health & Beauty | built.com |
+| Neon Champ (US) | `31647` | 16 | Home & Garden | neonchamp.com |
+| FLEXIMOUNTS | `89599` | 16 | Home & Garden | fleximounts.com |
 
-## Tier 2
+Also skipped from this tier, despite the counts: DHgate and Prime Buy are
+marketplaces rather than brands, Plugins-for-Wordpress is B2B, and 42Lolita
+and wowangel have no US branded search.
 
-| Advertiser | Awin ID | Category | US vouchers | Site |
-|---|---|---|---|---|
-| TideWe | `78182` | Sports | 47 | https://www.tidewe.com |
-| Brutus Broth | `55927` | Pets | 38 | https://www.brutusbroth.com |
-| AstroAI | `43671` | Automotive | 19 | https://www.astroai.com/ |
-| ProsourceFit | `81565` | Sports | 19 | https://www.prosourcefit.com |
-| Hiboy | `73421` | Sports | 14 | https://www.hiboy.com/collections/discount |
-| Tenorshare Co., Ltd | `92523` | Software | 8 | https://www.tenorshare.com |
-| UrthBox | `88563` | Food | 8 | https://www.urthbox.com |
-| ROBOTIME (US) | `93543` | Toys | 4 | https://www.robotimeonline.com |
-| The Chess Store, Inc. | `88289` | Toys | 4 | https://www.thechessstore.com |
+## A caveat on quality
 
-## Do not apply
+This batch is weaker than the first. The strongest names — UGREEN, TideWe,
+Peanut Butter & Co., Perdue Farms — appeared in earlier lists because they
+genuinely were the best available. What remains skews toward smaller DTC
+brands with real coupon inventory but limited branded search. Worth applying
+to for catalog breadth, which is its own goal; don't expect them to drive
+search traffic the way a recognisable name does.
 
-Confirmed from their own sites, not inferred from names — and note the
-sectors, which are where the risk hides:
-
-| Advertiser | Awin sector | What it actually sells |
-|---|---|---|
-| Adorime (Shenzhen Zhuole E-commerce) | Toys & Games | "Premium Sex Toys" |
-| BestRealDoll | Toys & Games | "Adult Sex Dolls" |
-| Galaxy Treats | FMCG | "Edibles and Vapes" — hemp, mushroom |
-| Sourcemore | Lead Gen | "Top Vape Shop Online" — 1,438 vouchers, the largest single source on Awin |
-
-All four are now in the blocklist, so their deals would be dropped at sync
-even if a programme auto-approved. Applying to them wastes the application
-twice over.
+1727 eligible advertisers remain beyond this table if you want more.
+Regenerate with a full scan rather than trusting this file after a month.
