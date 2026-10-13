@@ -86,6 +86,12 @@ function isNonUsTargeted(text) {
   if (/\b(mexico|canada|latam)\b/i.test(text)) return true;
   if (/\bmx\b/i.test(text)) return true;
   if (/\bfor\s+(mexico|latam|canada|uk|eu|australia)\s+only\b/i.test(text)) return true;
+  // Advertisers name the regional storefront rather than excluding the US:
+  // "20% Off ... UK Store", "10% Off for UK sitewide", "DE store link",
+  // "Sidewide for DE,EU,AU,CA Store". Awin reports these as unrestricted, so
+  // the structured region field passes them and only the text gives them
+  // away. Six Creality offers reached the live catalog this way.
+  if (/\b(uk|de|eu|au|ca|fr|es|it|nl|jp|br|mx)[\s,]*(store|sitewide|site\b)/i.test(text)) return true;
   return false;
 }
 
