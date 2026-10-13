@@ -20,12 +20,20 @@
 //    needed, not the structured read the docs imply.
 //  - `type` is "voucher" or "promotion". Both are real offers; a promotion
 //    is a sale with no code.
-//  - `advertiser` is nested: { id, name, joined }. That `joined` flag is the
-//    only reliable way to tell your programmes from the other 32,000
-//    promotions in the feed, because every server-side filter shape tried
-//    returned 400 or 500.
+//  - `advertiser` is nested: { id, name, joined }.
+//  - filters: { membership: "joined" } DOES work and is the whole game: 132
+//    rows instead of 31,149, every one an advertiser we've joined. An earlier
+//    version of this file claimed no server-side filter worked and paged the
+//    entire feed to compensate. That was wrong for the same reason the
+//    "outage" was: every filter probe used pageSize 5, so each one 500'd on
+//    validation before the filter was ever considered.
 //  - regions is { all: true } or { all: false, list: [{ countryCode }] }.
-//  - pageSize maxes out at 200; 500 and 1000 are rejected.
+//  - pageSize must be between 10 and 200. OUTSIDE THAT RANGE THE API ANSWERS
+//    500, NOT 400 — a validation failure dressed as a server fault. A week was
+//    lost to this: ad-hoc probes using pageSize 5 returned 500 every time and
+//    were read as an outage, while the client's own 200 kept working fine the
+//    whole period. If this endpoint ever appears "down", check the page size
+//    before believing it.
 //  - The endpoint 500s intermittently under rapid successive calls — the
 //    identical request that succeeded moments earlier can fail — so every
 //    call retries with backoff. Treat a single 500 as noise, not an answer.
@@ -38,13 +46,11 @@ const {
 
 const BASE = "https://api.awin.com";
 const PAGE_SIZE = 200;              // hard ceiling; larger is rejected
-const MAX_PAGES = 250;              // 50k rows, well clear of the ~32k live
-// A wall-clock ceiling, because a page cap isn't one: each page retries four
-// times with backoff, so 250 pages against a sulking endpoint is unbounded in
-// the only unit that matters. Hitting this returns complete:false, which
-// means the caller declines to prune — a short sync is harmless, a sync that
-// never returns is what took the nightly job down.
-const SCAN_BUDGET_MS = 4 * 60 * 1000;
+const MAX_PAGES = 50;               // 10k joined-advertiser rows; today it's 132
+// Still bounded, but no longer load-bearing: the membership filter means a
+// normal sync is one or two requests rather than 156, so this is a guard
+// against a runaway loop rather than a budget we expect to spend.
+const SCAN_BUDGET_MS = 3 * 60 * 1000;
 const NO_EXPIRY = "2099-12-31";     // matches impactClient's sentinel
 
 const ENDPOINTS = {
@@ -89,7 +95,8 @@ async function awinFetch(path, token, { method = "GET", body } = {}, attempt = 1
     return awinFetch(path, token, { method, body }, attempt + 1);
   }
   if (!res.ok) {
-    throw new Error(`Awin ${method} ${path} returned ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    const hint = res.status === 500 ? " (a 500 here is often a validation failure — check pageSize is 10-200)" : "";
+    throw new Error(`Awin ${method} ${path} returned ${res.status}${hint}: ${(await res.text()).slice(0, 200)}`);
   }
   return res.json();
 }
@@ -172,10 +179,10 @@ async function fetchJoinedProgrammes({ token, publisherId }) {
   }
 }
 
-// Every server-side filter shape tried came back 400 or 500, so the whole
-// feed gets paged and filtered here. ~32k rows at 200 a page is ~160 requests
-// on a nightly job, which is acceptable; what isn't acceptable is importing
-// 32,000 promotions from programmes we haven't joined and can't earn on.
+// Asks for joined advertisers only. The client still filters on
+// advertiser.joined afterwards — belt and braces, since the whole catalog
+// depends on not importing offers we can't earn on — but the server now does
+// the work, and the difference is 132 rows against 31,149.
 // Returns { rows, complete }. The flag is load-bearing: the caller prunes
 // anything not in the result, so pruning against a partial scan would delete
 // deals whose promotions were simply on a page we never read. A short page
@@ -193,7 +200,7 @@ async function fetchAllPromotions({ token, publisherId }) {
     }
     const payload = await awinFetch(ENDPOINTS.promotions(publisherId), token, {
       method: "POST",
-      body: { filters: {}, pagination: { page, pageSize: PAGE_SIZE } }
+      body: { filters: { membership: "joined" }, pagination: { page, pageSize: PAGE_SIZE } }
     });
     const batch = payload?.data || [];
     rows.push(...batch);

@@ -441,12 +441,15 @@ router.post("/cron/sync-cj", requireCronSecret, async (req, res) => {
     const syncResult = await upsertCjDeals(cjDeals);
     const cjPruned = await pruneCjDeals(cjDeals.map(d => d.cjLinkId));
     const impactResult = await runImpactSync();
+    // Back in the nightly job. It was moved out when a sync meant paging the
+    // whole 31k-row feed; with the membership filter it's one request.
+    const awinResult = await runAwinSync();
     // Link checking runs after both syncs so newly-arrived deals from either
     // network are covered by the same sweep.
     const linkCheckResult = await checkAndPruneDeadLinks();
     const blockedResult = await purgeBlockedDeals();
     const expiredResult = await purgeExpiredDeals();
-    res.json({ success: true, ...syncResult, impact: impactResult, linkCheck: linkCheckResult, cjPruned, blocked: blockedResult, expired: expiredResult });
+    res.json({ success: true, ...syncResult, impact: impactResult, awin: awinResult, linkCheck: linkCheckResult, cjPruned, blocked: blockedResult, expired: expiredResult });
   } catch (err) {
     console.error("Cron sync error:", err.message);
     res.status(500).json({ success: false, error: err.message });

@@ -50,7 +50,10 @@ const CANDIDATES = [
   // The two known-good paths first, so a re-run answers the important
   // question — "do these still work?" — before anything else.
   { method: "GET", path: `/publishers/${publisherId}/programmes?relationship=joined` },
-  { method: "POST", path: `/publisher/${publisherId}/promotions`, body: { filters: {}, pagination: { page: 1, pageSize: 5 } } },
+  // pageSize 10 is the MINIMUM the API accepts. Below it, Awin returns 500
+  // rather than 400, and an earlier version of this probe used 5 — which made
+  // a working endpoint look like an eight-day outage.
+  { method: "POST", path: `/publisher/${publisherId}/promotions`, body: { filters: {}, pagination: { page: 1, pageSize: 10 } } },
   { method: "GET", path: `/publishers/${publisherId}/programmes` },
   { method: "GET", path: `/publisher/${publisherId}/programmes?relationship=joined` },
   { method: "GET", path: `/publishers/${publisherId}/programmedetails` },
