@@ -24,7 +24,7 @@ outcome 40 times over.
 
 | Advertiser | Awin ID | US vouchers | Category | Site |
 |---|---|---|---|---|
-| Hernest | Home Decor (US) | `58525` | 100 | Home & Garden | hernest.com |
+| Hernest Home Decor | `58525` | 100 | Home & Garden | hernest.com |
 | PetPlate | `70899` | 79 | Home & Garden | petplate.com |
 | Sephra LP | `88379` | 72 | FMCG | sephrausa.com |
 | Clever Fox | `95765` | 65 | Gifts & Flowers | cleverfoxplanner.com |
