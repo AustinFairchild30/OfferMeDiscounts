@@ -16,54 +16,10 @@
 //
 // Hard constraint, same as seo.js: NEVER put deal.code in this HTML.
 
-const { escapeHtml, storePath, safeTitle, displayableDeals } = require("./seo");
-
-// Twin of offerLine() in js/app.js — keep them in step. Affiliate titles are
-// uneven enough that printing them raw would publish "Winebasket120x600" (a
-// banner size) into indexable markup, and a page of those reads exactly like
-// the scraped doorway pages this site is trying not to be.
-function offerLine(deal) {
-  let text = safeTitle(deal).trim();
-  if (!text) return "";
-
-  // Affiliate creatives arrive as filenames — "CMH_20%_728X90",
-  // "...Mujeres)_970x250". Underscore is a word character, so every \b in the
-  // checks below silently fails against them, and the underscores themselves
-  // survive the punctuation strip and pad the residue over its threshold.
-  // Treating them as separators first fixes both.
-  text = text.replace(/_+/g, " ").replace(/\s{2,}/g, " ").trim();
-
-  // Case-insensitive: the banner sizes are written 728X90 as often as 728x90.
-  if (/\b\d{2,4}\s*[x×]\s*\d{2,4}\b/i.test(text)) return "";
-
-  // Affiliate link names are stacked prefixes — "Miles District - Text Link -
-  // 10% Off First Order" carries the store name (already the card's heading)
-  // and the link type (ours to know, not the visitor's to read). Peeled in a
-  // loop because stripping one exposes the next, and a single pass in any
-  // fixed order leaves whichever came second.
-  const LEAD_NOISE = /^(service|coupon|deal|offer|promo|sale|text link|text ad|banner|logo|homepage|generic)\s*[:\-–|]\s*/i;
-  const storePrefix = deal.store
-    ? new RegExp(`^${String(deal.store).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*[:\\-–|]\\s*`, "i")
-    : null;
-
-  for (let i = 0; i < 4; i++) {
-    const before = text;
-    text = text.replace(LEAD_NOISE, "").trim();
-    if (storePrefix) text = text.replace(storePrefix, "").trim();
-    if (text === before) break;
-  }
-
-  const residue = text
-    .toLowerCase()
-    .split(String(deal.store || "").toLowerCase()).join(" ")
-    .replace(/\b(coupon|code|deal|offer|promo|sale|service|off|save|get|at|on|the|your|for|a|an|with|up|to)\b/g, " ")
-    .replace(/[\d%$.,:\-–—]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (residue.length < 4) return "";
-
-  return text;
-}
+// offerLine lives in seo.js so the homepage grid, the store pages and the
+// category pages all clean affiliate titles the same way. js/app.js carries a
+// twin of it — keep them in step.
+const { escapeHtml, storePath, offerLine, displayableDeals } = require("./seo");
 
 // Twin of discountTier() in js/app.js.
 function discountTier(discount) {

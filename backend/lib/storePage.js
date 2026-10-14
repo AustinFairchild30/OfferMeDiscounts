@@ -1,4 +1,14 @@
-const { escapeHtml, storePath, safeTitle, isIndexableStore, SITE_ORIGIN } = require("./seo");
+const {
+  escapeHtml, storePath, offerLine, isIndexableStore, SITE_ORIGIN, groupPath
+} = require("./seo");
+
+// Affiliate titles are link names, and a few are nothing but the name of the
+// creative — offerLine strips those back to nothing on purpose. The heading
+// still has to say something, and the discount plus the store is the one
+// thing that's always true of the row.
+function headline(deal, store) {
+  return offerLine(deal) || `${deal.discount} at ${store}`;
+}
 
 const MONTHS = ["January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December"];
@@ -27,7 +37,7 @@ function offerJsonLd(store, deals) {
       position: i + 1,
       item: {
         "@type": "Offer",
-        name: safeTitle(deal),
+        name: headline(deal, store),
         description: deal.discount,
         seller: { "@type": "Organization", name: store },
         availabilityEnds: deal.expires,
@@ -37,9 +47,9 @@ function offerJsonLd(store, deals) {
   });
 }
 
-function dealRow(deal) {
+function dealRow(deal, store) {
   const badge = escapeHtml(deal.discount);
-  const title = escapeHtml(safeTitle(deal));
+  const title = escapeHtml(headline(deal, store));
   // The "Get Code" link carries the deal id so the homepage can open straight
   // to this offer's gate. Never the code itself.
   return `
@@ -77,7 +87,7 @@ function relatedBlock(related) {
   </section>`;
 }
 
-function renderStorePage(store, deals, related = null) {
+function renderStorePage(store, deals, related = null, group = null) {
   const monthYear = currentMonthYear();
   const count = deals.length;
   const best = deals
@@ -136,7 +146,7 @@ ${isIndexableStore(deals) ? "" : '<meta name="robots" content="noindex,follow" /
   </p>
 
   <ul class="seo-deal-list">
-    ${deals.map(dealRow).join("\n")}
+    ${deals.map(d => dealRow(d, store)).join("\n")}
   </ul>
 
   <section class="seo-note">
@@ -150,7 +160,7 @@ ${isIndexableStore(deals) ? "" : '<meta name="robots" content="noindex,follow" /
 
 ${relatedBlock(related)}
 
-  <p class="seo-back"><a href="/stores">&larr; All stores</a> &middot; <a href="/">Browse all deals</a></p>
+  <p class="seo-back">${group ? `<a href="${groupPath(group)}">All ${escapeHtml(group)} deals</a> &middot; ` : ""}<a href="/stores">All stores</a> &middot; <a href="/">Browse all deals</a></p>
 </main>
 
 <footer class="site-footer">

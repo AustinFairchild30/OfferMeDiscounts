@@ -55,6 +55,83 @@ function safeTitle(deal) {
   return redactCodes(deal.title, deal.code);
 }
 
+// Affiliate titles are link names, not offer descriptions. CJ in particular
+// hands back the name of the creative — "17% Off Text Link", "Shop Quickbooks
+// and Save! banner image", "25% Office Banner link" — which is internal
+// plumbing a visitor has no use for and a crawler reads as a scraped feed.
+// There were 12 of these in a 212-deal catalog, 11 of them from one
+// advertiser, and they clustered at the top of the new category pages.
+//
+// Shared with the homepage grid (backend/lib/homePage.js) and twinned in
+// js/app.js — keep the three in step.
+function offerLine(deal) {
+  let text = safeTitle(deal).trim();
+  if (!text) return "";
+
+  // Creatives arrive as filenames — "CMH_20%_728X90", "...Mujeres)_970x250".
+  // Underscore is a word character, so every \b below silently fails against
+  // them, and the underscores survive the punctuation strip and pad the
+  // residue over its threshold. Treating them as separators fixes both.
+  text = text.replace(/_+/g, " ").replace(/\s{2,}/g, " ").trim();
+
+  // Case-insensitive: the banner sizes are written 728X90 as often as 728x90.
+  if (/\b\d{2,4}\s*[x×]\s*\d{2,4}\b/i.test(text)) return "";
+
+  // Creative-type words, wherever they appear rather than only at the front:
+  // "text link coupon code" puts them in the middle. The list is explicit
+  // because the single word "link" is a legitimate part of a product name and
+  // stripping it alone would damage real titles.
+  text = text
+    .replace(/\b(?:text|banner|display|image|logo|email)\s*(?:link|banner|image|ad|sale)\b/gi, " ")
+    // DirectDeals suffixes its creative names with OPC. Hardcoded because it
+    // is one advertiser's internal tag, not a general pattern worth guessing.
+    .replace(/\bOPC\b/g, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+
+  // Affiliate link names are stacked prefixes — "Miles District - Text Link -
+  // 10% Off First Order" carries the store name (already the heading) and the
+  // link type. Peeled in a loop because stripping one exposes the next, and a
+  // single pass in any fixed order leaves whichever came second.
+  const LEAD_NOISE = /^(service|coupon|deal|offer|promo|sale|text link|text ad|banner|logo|homepage|generic)\s*[:\-–|]\s*/i;
+  const storePrefix = deal.store
+    ? new RegExp(`^${String(deal.store).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*[:\\-–|]\\s*`, "i")
+    : null;
+
+  for (let i = 0; i < 4; i++) {
+    const before = text;
+    text = text.replace(LEAD_NOISE, "").trim();
+    if (storePrefix) text = text.replace(storePrefix, "").trim();
+    // "...sale - 20% coupon code" — true of every offer here and stated by
+    // the row's own label, so it adds nothing at the end of a title.
+    // The modifiers go with it: "Exclusive AWIN Code" and "New 15% OFF
+    // Affiliate Code" otherwise strip back to a dangling adjective.
+    text = text.replace(
+      /[\s\-–—|:,]*\b(?:(?:exclusive|affiliate|discount|coupon|promo|voucher|awin|special|unique|secret)\s+)*(?:coupon|promo|discount|voucher)?\s*codes?\s*$/i,
+      ""
+    ).trim();
+    // And the preposition the code hung off: "...Off with" reads as truncated.
+    text = text.replace(/\s+\b(with|using|via|at|on|for|and|the|your)\b\s*$/i, "").trim();
+    text = text.replace(/^[\s\-–—|:•]+/, "").replace(/[\s\-–—|:,]+$/, "").trim();
+    if (text === before) break;
+  }
+
+  // What's left once the words every offer shares are removed. A title that
+  // reduces to nothing was never describing this offer — "17% Off Text Link"
+  // becomes "17% Off", which the badge beside it already says, and which in
+  // that particular row contradicted it (the badge read 25%).
+  const residue = text
+    .toLowerCase()
+    .split(String(deal.store || "").toLowerCase()).join(" ")
+    .replace(/\b(coupon|code|deal|offer|promo|sale|service|off|save|get|at|on|the|your|for|a|an|with|up|to)\b/g, " ")
+    .replace(/[\d%$.,:\-–—]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (residue.length < 4) return "";
+
+  return text;
+}
+
 // A store page with one offer is a headline, a single row and the same
 // boilerplate as 41 others — 16 of 42 stores are in that state right now.
 // A set of near-identical thin pages is what Google's thin-content handling
@@ -71,6 +148,57 @@ const MIN_DEALS_TO_INDEX = 2;
 
 function isIndexableStore(storeDeals) {
   return (storeDeals || []).length >= MIN_DEALS_TO_INDEX;
+}
+
+// Browse groups as their own pages. Store pages are capped by the catalog —
+// only 33 stores have the two offers needed to be worth indexing — and
+// coverage of those is already complete, so the group pages are the next
+// surface worth having. They also target queries people actually type: nobody
+// searches "Stirlingkit coupons", plenty search "pet supply coupons".
+function groupPath(group) {
+  return `/${slugify(group)}-deals`;
+}
+
+function groupsFrom(deals) {
+  const { groupForCategory } = require("./categoryTags");
+  const byGroup = new Map();
+  for (const deal of displayableDeals(deals)) {
+    const group = groupForCategory(deal.category);
+    if (!byGroup.has(group)) byGroup.set(group, []);
+    byGroup.get(group).push(deal);
+  }
+  return byGroup;
+}
+
+// Same bar as a store page, and for the same reason: a group holding one or
+// two offers is a thin page, and a wall of them is what thin-content handling
+// is built to catch.
+const MIN_DEALS_TO_INDEX_GROUP = 4;
+// And more than one retailer. A group whose every offer comes from a single
+// store is that store's page with a different heading — Food & Drink was
+// exactly this, four offers all from one advertiser — and two URLs carrying
+// the same offers compete with each other rather than adding reach.
+const MIN_STORES_TO_INDEX_GROUP = 2;
+
+// The one list of groups that get a page, used by the route, the sitemap and
+// every internal link, so none of them can disagree about what exists. "More"
+// is excluded on purpose: it's the catch-all for categories no group claims,
+// which makes it the one group whose contents have nothing in common — the
+// exact shape of a page worth nothing to a visitor or a crawler.
+function indexableGroups(deals) {
+  return [...groupsFrom(deals).entries()]
+    .filter(([group, groupDeals]) =>
+      group !== "More" &&
+      groupDeals.length >= MIN_DEALS_TO_INDEX_GROUP &&
+      new Set(groupDeals.map(d => d.store)).size >= MIN_STORES_TO_INDEX_GROUP)
+    .sort((a, b) => a[0].localeCompare(b[0]));
+}
+
+function findGroupBySlug(deals, slug) {
+  for (const [group, groupDeals] of indexableGroups(deals)) {
+    if (slugify(group) === slug) return { group, deals: groupDeals };
+  }
+  return null;
 }
 
 function displayableDeals(deals) {
@@ -185,6 +313,13 @@ function sitemapXml(deals) {
     { loc: "/about.html", priority: "0.5", changefreq: "monthly", lastmod: null },
     // Submitting a noindex URL in a sitemap asks a crawler to fetch a page
     // and then tells it not to index what it fetched. Leave them out.
+    ...indexableGroups(deals)
+      .map(([group, groupDeals]) => ({
+        loc: groupPath(group),
+        priority: "0.85",
+        changefreq: "daily",
+        lastmod: lastModOf(groupDeals)
+      })),
     ...[...byStore.keys()]
       .filter(store => isIndexableStore(byStore.get(store)))
       .sort()
@@ -224,9 +359,16 @@ module.exports = {
   isIndexableStore,
   MIN_DEALS_TO_INDEX,
   safeTitle,
+  offerLine,
   categoryOf,
   relatedStores,
   findStoreBySlug,
+  groupPath,
+  groupsFrom,
+  indexableGroups,
+  findGroupBySlug,
+  MIN_DEALS_TO_INDEX_GROUP,
+  MIN_STORES_TO_INDEX_GROUP,
   robotsTxt,
   sitemapXml
 };

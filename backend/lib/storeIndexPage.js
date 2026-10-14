@@ -1,4 +1,6 @@
-const { escapeHtml, storePath, SITE_ORIGIN, storesFrom } = require("./seo");
+const {
+  escapeHtml, storePath, SITE_ORIGIN, storesFrom, groupPath, indexableGroups
+} = require("./seo");
 
 function discountValue(discount) {
   return parseFloat(String(discount || "").match(/(\d+(?:\.\d+)?)/)?.[1] || 0);
@@ -23,6 +25,22 @@ function renderStoreIndexPage(deals) {
   const title = `All Stores — Coupons & Promo Codes | OfferMeDiscounts`;
   const description = `Browse ${totalDeals} verified offers across ${stores.length} retailers. Every link is checked daily, so expired codes are removed automatically.`;
   const canonical = `${SITE_ORIGIN}/stores`;
+
+  // The category bar on the homepage is a row of buttons that filter the grid
+  // client-side, so a crawler can't follow it anywhere. This is the crawlable
+  // version, and it sits on the one page already linked from every footer —
+  // which is what gives the category pages a path in from the whole site.
+  const groupTiles = indexableGroups(deals)
+    .map(
+      ([group, groupDeals]) => `
+      <li class="store-tile">
+        <a href="${groupPath(group)}">
+          <span class="store-tile-name">${escapeHtml(group)}</span>
+          <span class="store-tile-meta">${groupDeals.length} offer${groupDeals.length === 1 ? "" : "s"}</span>
+        </a>
+      </li>`
+    )
+    .join("\n");
 
   const rows = stores
     .map(
@@ -76,6 +94,13 @@ function renderStoreIndexPage(deals) {
     We follow every link to the retailer's own site each day and drop anything that stops working.
   </p>
 
+${groupTiles ? `
+  <h2>Browse by category</h2>
+  <ul class="store-tiles">
+${groupTiles}
+  </ul>
+` : ""}
+  <h2>Every store</h2>
   <ul class="store-tiles">
 ${rows}
   </ul>

@@ -6,8 +6,12 @@ const cookieParser = require("cookie-parser");
 const apiRouter = require("./routes/api");
 const { COOKIE_NAME, verifySessionToken } = require("./lib/adminAuth");
 const { readDeals } = require("./lib/dealsStore");
-const { robotsTxt, sitemapXml, findStoreBySlug, relatedStores } = require("./lib/seo");
+const {
+  robotsTxt, sitemapXml, findStoreBySlug, relatedStores,
+  findGroupBySlug, indexableGroups
+} = require("./lib/seo");
 const { renderStorePage } = require("./lib/storePage");
+const { renderGroupPage } = require("./lib/groupPage");
 const { injectHomeGrid } = require("./lib/homePage");
 const { renderStoreIndexPage } = require("./lib/storeIndexPage");
 const { renderNotFoundPage } = require("./lib/notFoundPage");
@@ -148,9 +152,43 @@ app.get("/:slug-coupons", async (req, res, next) => {
     const allDeals = await readDeals();
     const found = findStoreBySlug(allDeals, slug);
     if (!found) return next();
-    res.type("html").send(renderStorePage(found.store, found.deals, relatedStores(allDeals, found.store)));
+    // Which category page this store belongs under, by membership rather than
+    // by re-deriving the group from its categories — so the link can only
+    // point at a page that exists and already lists these offers.
+    const ids = new Set(found.deals.map(d => d.id));
+    const group = indexableGroups(allDeals).find(([, gDeals]) => gDeals.some(d => ids.has(d.id)));
+    res.type("html").send(renderStorePage(
+      found.store,
+      found.deals,
+      relatedStores(allDeals, found.store),
+      group ? group[0] : null
+    ));
   } catch (err) {
     console.error("Store page error:", err.message);
+    next(err);
+  }
+});
+
+// Per-category pages: /tech-deals, /pets-deals. Store pages top out at the
+// 33 retailers carrying two or more live offers, and Google has indexed
+// essentially all of them, so page count — not coverage — is now the ceiling.
+// These also aim at queries with real volume: "pet supply coupons" gets
+// searched, "Stirlingkit coupons" doesn't.
+//
+// Served only for a group indexableGroups() vouches for, so a thin or
+// catch-all group falls through to the 404 rather than becoming a page that
+// exists but shouldn't be indexed.
+app.get("/:slug-deals", async (req, res, next) => {
+  const slug = String(req.params.slug || "");
+  try {
+    const allDeals = await readDeals();
+    const found = findGroupBySlug(allDeals, slug);
+    if (!found) return next();
+    res.type("html").send(
+      renderGroupPage(found.group, found.deals, indexableGroups(allDeals))
+    );
+  } catch (err) {
+    console.error("Group page error:", err.message);
     next(err);
   }
 });

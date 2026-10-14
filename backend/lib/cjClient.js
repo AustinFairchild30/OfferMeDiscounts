@@ -136,7 +136,18 @@ const STORE_DISPLAY_NAMES = {
   // it only strips a space-separated "US" (never a word ending in "us").
   "amazon-pioneer camp-us": "Pioneer Camp",
   // Bare domain whose generic .com strip leaves it lowercase.
-  "lightsaber.com": "Lightsaber"
+  "lightsaber.com": "Lightsaber",
+  // Awin. Each checked against the brand's own site, not guessed: the
+  // programme is crealityfalcon.com ("Your First Laser Cutter") rather than
+  // the printer line, and the rest are feed casing rather than styling.
+  // ZEEHOO and BLUETTI are left alone — those really are their own caps.
+  "creality 3d technology": "Creality Falcon",
+  "creality 3d technology llc": "Creality Falcon",
+  "euhomy": "Euhomy",
+  "mojawa": "Mojawa",
+  "mojawa, llc": "Mojawa",
+  "aloraircrawlspace": "Alorair",
+  "alorair the dry air": "Alorair"
 };
 
 // CJ's advertiser-name is an account name, not a brand name: it carries the

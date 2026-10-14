@@ -132,8 +132,15 @@ async function loadTaxonomy() {
   }
 }
 
+// Falls back to "More", matching groupForCategory() in
+// backend/lib/categoryTags.js. Returning the raw category instead — which is
+// what this did — gave every unclaimed category its own chip, so a single
+// "Fragrance" offer arriving from a network produced a chip reading
+// "Fragrance 1" that led to a page with one deal on it. The fix was to claim
+// those categories in CATEGORY_GROUPS, but the next new one would have done
+// it again. Now an unclaimed category lands in More until it's claimed.
 function groupForCategory(category) {
-  return GROUP_BY_CATEGORY[category] || category;
+  return GROUP_BY_CATEGORY[category] || "More";
 }
 
 function labelForCategory(category) {
@@ -613,6 +620,17 @@ function offerLine(deal) {
   // Banner dimensions in the link name, e.g. "Winebasket120x600".
   if (/\b\d{2,4}\s*[x\u00d7]\s*\d{2,4}\b/i.test(text)) return "";
 
+  // Creative-type words, wherever they appear rather than only at the front:
+  // "text link coupon code" puts them in the middle. The list is explicit
+  // because "link" on its own is a legitimate part of a product name.
+  text = text
+    .replace(/\b(?:text|banner|display|image|logo|email)\s*(?:link|banner|image|ad|sale)\b/gi, " ")
+    // DirectDeals suffixes its creative names with OPC — one advertiser's
+    // internal tag, not a pattern worth generalising.
+    .replace(/\bOPC\b/g, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+
   // Affiliate link names are stacked prefixes — "Miles District - Text Link -
   // 10% Off First Order" carries the store name (already the card's heading)
   // and the link type (ours to know, not the visitor's to read). Peeled in a
@@ -627,6 +645,15 @@ function offerLine(deal) {
     const before = text;
     text = text.replace(LEAD_NOISE, "").trim();
     if (storePrefix) text = text.replace(storePrefix, "").trim();
+    // "...sale - 20% coupon code" — true of every offer here and already said
+    // by the button. The modifiers go with it, or "Exclusive AWIN Code" and
+    // "New 15% OFF Affiliate Code" strip back to a dangling adjective.
+    text = text.replace(
+      /[\s\-\u2013\u2014|:,]*\b(?:(?:exclusive|affiliate|discount|coupon|promo|voucher|awin|special|unique|secret)\s+)*(?:coupon|promo|discount|voucher)?\s*codes?\s*$/i,
+      ""
+    ).trim();
+    text = text.replace(/\s+\b(with|using|via|at|on|for|and|the|your)\b\s*$/i, "").trim();
+    text = text.replace(/^[\s\-\u2013\u2014|:\u2022]+/, "").replace(/[\s\-\u2013\u2014|:,]+$/, "").trim();
     if (text === before) break;
   }
 
@@ -854,7 +881,8 @@ function renderSortBar() {
   const options = [
     ["matched", "Best match"],
     ["discount", "Biggest discount"],
-    ["ending", "Ending soon"]
+    ["ending", "Ending soon"],
+    ["newest", "Just added"]
   ];
   bar.innerHTML = options
     .map(([key, label]) =>
@@ -880,6 +908,15 @@ function orderDeals(deals) {
       (a, b) =>
         discountValue(b.discount) - discountValue(a.discount) ||
         String(a.store).localeCompare(String(b.store))
+    );
+  }
+  // Newest first. The "New this week" marker gave arrivals a badge and no way
+  // to find them; this is the view it implies. Deals with no createdAt sort
+  // last rather than first — an unknown date isn't a recent one.
+  if (activeSort === "newest") {
+    const added = d => (d.createdAt ? new Date(d.createdAt).getTime() : 0) || 0;
+    return [...deals].sort(
+      (a, b) => added(b) - added(a) || discountValue(b.discount) - discountValue(a.discount)
     );
   }
   if (activeSort === "ending") {

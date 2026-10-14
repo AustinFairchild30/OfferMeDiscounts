@@ -57,15 +57,20 @@ const CATEGORY_LABELS = {
 // specific. Grouping keeps every chip worth clicking while the catalog is
 // still small; it can be loosened again once individual categories are deep
 // enough to stand on their own.
+// Every category a network can emit has to land in a group, or it surfaces as
+// its own chip filtering 199 deals down to one. "Childrens" and "Fragrance"
+// both did exactly that once Awin's catalog arrived — they existed as raw
+// categories nobody had mapped, so the browse bar grew two dead ends.
 const CATEGORY_GROUPS = {
-  "Tech": ["Computer SW", "Consumer Electronics"],
-  "Home": ["Home Appliances", "Furniture", "Bed & Bath"],
-  "Beauty & Health": ["Cosmetics", "Nutritional Supplements", "Wellness", "Bath & Body"],
-  "Sports & Outdoors": ["Sports", "Outdoors", "Golf"],
-  "Fashion": ["Apparel", "Shoes", "Womens", "Mens", "Jewelry"],
-  "Food & Drink": ["Gourmet"],
-  "Travel": ["Hotel"],
-  "Kids & Gifts": ["Babies", "Toys", "Gifts", "Flowers", "Magazines"]
+  "Tech": ["Computer SW", "Consumer Electronics", "Computers", "Electronic Accessories", "Software"],
+  "Home": ["Home Appliances", "Furniture", "Bed & Bath", "Home & Garden", "Bedding", "White Goods", "Appliances"],
+  "Beauty & Health": ["Cosmetics", "Nutritional Supplements", "Wellness", "Bath & Body", "Fragrance", "Health & Beauty", "Supplements"],
+  "Sports & Outdoors": ["Sports", "Outdoors", "Golf", "Sports Equipment", "Automotive"],
+  "Fashion": ["Apparel", "Shoes", "Womens", "Mens", "Jewelry", "Clothing", "Clothing Accessories", "Women's", "Men's"],
+  "Food & Drink": ["Gourmet", "FMCG"],
+  "Travel": ["Hotel", "Hotels"],
+  "Pets": ["Pets & Pet Care", "Pets"],
+  "Kids & Gifts": ["Babies", "Baby", "Toys", "Toys & Games", "Gifts", "Gifts & Flowers", "Flowers", "Magazines", "Childrens", "Children's"]
 };
 
 const GROUP_BY_CATEGORY = {};

@@ -1192,6 +1192,18 @@ table.admin-table tr:last-child td { border-bottom: none; }
   .seo-deal-cta { order: 3; margin-left: auto; }
 }
 
+/* Category pages (/tech-deals, /pets-deals). Offers are grouped under a
+   store heading rather than listed flat: on a category page the question is
+   "which brands are in here", and 49 undifferentiated rows don't answer it. */
+.seo-group-store { margin: 0 0 30px; }
+.seo-group-store h2 { font-size: 19px; margin: 0 0 10px; }
+.seo-group-more { margin: 10px 0 0; font-size: 13px; }
+.seo-group-more a { color: var(--brand-mint); font-weight: 600; }
+
+/* The /stores page carries two tile lists now, so each needs a heading. */
+.seo-page h2 + .store-tiles { margin-top: 12px; }
+.seo-page > h2 { font-size: 19px; margin: 30px 0 0; }
+
 /* Store directory (/stores) — the crawl hub, but it earns its place for
    visitors too: at this catalog size "which brands do you even carry" is a
    fair question and the homepage grid answers it slowly. */
