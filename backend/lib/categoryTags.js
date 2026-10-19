@@ -38,7 +38,15 @@ const CATEGORY_TAGS = {
   // unreachable by construction: Nextrition Pet could only ever come back
   // "Other" and land in the More bucket. Adding a group now means adding its
   // category here too.
-  "Pets & Pet Care": ["Dog Food & Treats", "Cat Supplies", "Pet Health", "Pet Toys & Accessories"]
+  "Pets & Pet Care": ["Dog Food & Treats", "Cat Supplies", "Pet Health", "Pet Toys & Accessories"],
+  // Cosmetics reads as makeup and skincare to the classifier, so a hair
+  // brand — Moresoo sells extensions and wigs — came back "Other" even
+  // though Cosmetics carries a Haircare sub-tag. Its own category is what
+  // gets it picked.
+  "Hair Care": ["Extensions & Wigs", "Shampoo & Conditioner", "Styling Tools", "Hair Treatments"],
+  // Car accessories and cordless tools. Fanttik's catalog is tire inflators,
+  // jump starters, car vacuums and an electric screwdriver.
+  "Automotive": ["Car Accessories", "Car Care & Cleaning", "Jump Starters & Tire Inflators", "Power Tools"]
 };
 
 // CJ's category names are its own internal taxonomy, not shopper language:
@@ -71,10 +79,16 @@ const CATEGORY_LABELS = {
 // both did exactly that once Awin's catalog arrived — they existed as raw
 // categories nobody had mapped, so the browse bar grew two dead ends.
 const CATEGORY_GROUPS = {
-  "Tech": ["Computer SW", "Consumer Electronics", "Computers", "Electronic Accessories", "Software"],
+  // Automotive sits here rather than under Sports & Outdoors, where it was
+  // filed and never used: the only advertiser it covers sells gadgets — a
+  // car vacuum and a cordless screwdriver — and a tire inflator listed
+  // beside golf clubs helps nobody. If a real parts retailer ever joins,
+  // that's the moment to give Automotive a group of its own; today it would
+  // be a two-deal chip, which is the dead end this grouping exists to avoid.
+  "Tech": ["Computer SW", "Consumer Electronics", "Computers", "Electronic Accessories", "Software", "Automotive"],
   "Home": ["Home Appliances", "Furniture", "Bed & Bath", "Home & Garden", "Bedding", "White Goods", "Appliances"],
-  "Beauty & Health": ["Cosmetics", "Nutritional Supplements", "Wellness", "Bath & Body", "Fragrance", "Health & Beauty", "Supplements"],
-  "Sports & Outdoors": ["Sports", "Outdoors", "Golf", "Sports Equipment", "Automotive"],
+  "Beauty & Health": ["Cosmetics", "Nutritional Supplements", "Wellness", "Bath & Body", "Fragrance", "Health & Beauty", "Supplements", "Hair Care"],
+  "Sports & Outdoors": ["Sports", "Outdoors", "Golf", "Sports Equipment"],
   "Fashion": ["Apparel", "Shoes", "Womens", "Mens", "Jewelry", "Clothing", "Clothing Accessories", "Women's", "Men's"],
   "Food & Drink": ["Gourmet", "FMCG"],
   "Travel": ["Hotel", "Hotels"],
