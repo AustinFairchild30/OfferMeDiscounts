@@ -75,7 +75,11 @@ function track(step, dealId) {
       dealId: dealId || null,
       source: touch.source,
       medium: touch.medium,
-      campaign: touch.campaign
+      campaign: touch.campaign,
+      // Sent from here too, not just the server-rendered pages, so the report
+      // can compare a session that started on /tech-deals against one that
+      // started on the homepage. Twin of the same field in js/track.js.
+      landingPath: location.pathname
     })
   }).catch(() => {});
 }

@@ -322,6 +322,19 @@ async function loadFunnel() {
         </tr>`).join("")
     : `<tr><td colspan="6" style="color:var(--ink-soft);">Nothing recorded yet.</td></tr>`;
 
+  // The table the server-rendered pages were built for: how many sessions
+  // START on a store or category page. A page that never appears here is one
+  // search isn't sending anyone to yet.
+  const landing = (report.landingPages || []).length
+    ? report.landingPages.map(l => `
+        <tr>
+          <td>${l.landing_path === "/" ? "/ <span style=\"color:var(--ink-soft);\">(homepage)</span>" : l.landing_path}</td>
+          <td>${l.visitors}</td>
+          <td>${l.went_further}</td>
+          <td>${l.visitors ? pct((l.went_further / l.visitors) * 100) : "—"}</td>
+        </tr>`).join("")
+    : `<tr><td colspan="4" style="color:var(--ink-soft);">Nothing recorded yet. The store and category pages started reporting on 19 Oct 2026, so this fills in from then.</td></tr>`;
+
   const deals = report.deals.length
     ? report.deals.map(d => `
         <tr>
@@ -346,6 +359,14 @@ async function loadFunnel() {
       <table class="admin-table">
         <thead><tr><th>Source</th><th>Campaign</th><th>Visitors</th><th>Registered</th><th>Rate</th><th>Outbound</th></tr></thead>
         <tbody>${campaigns}</tbody>
+      </table>
+    </div>
+
+    <div class="section-head"><h2 style="font-size:16px;">Where they landed</h2></div>
+    <div style="overflow-x:auto;">
+      <table class="admin-table">
+        <thead><tr><th>Landing page</th><th>Sessions</th><th>Did more than look</th><th>Rate</th></tr></thead>
+        <tbody>${landing}</tbody>
       </table>
     </div>
 

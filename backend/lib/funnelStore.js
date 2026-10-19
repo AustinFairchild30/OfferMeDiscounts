@@ -42,13 +42,27 @@ function cleanTag(value, max = 120) {
   return normalized || null;
 }
 
-async function recordEvent({ visitorId, phone, step, dealId, source, medium, campaign }) {
+// The page the event happened on, which for a visitor's first event is the
+// page search sent them to. Deliberately path only: the query string is
+// attacker-controlled free text on an endpoint open to anonymous visitors,
+// and on this site it also carries deal ids, so storing it would put
+// arbitrary input and a little PII surface into the analytics table for no
+// analytical gain. A path that doesn't look like one of ours is dropped
+// rather than stored.
+function cleanPath(value, max = 200) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim().split(/[?#]/)[0].slice(0, max);
+  if (!trimmed.startsWith("/")) return null;
+  return /^[A-Za-z0-9/._-]+$/.test(trimmed) ? trimmed.toLowerCase() : null;
+}
+
+async function recordEvent({ visitorId, phone, step, dealId, source, medium, campaign, landingPath }) {
   const visitor = cleanId(visitorId);
   if (!visitor || !isValidStep(step)) return false;
 
   await pool.query(
-    `INSERT INTO funnel_events (visitor_id, phone, step, deal_id, source, medium, campaign)
-     VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+    `INSERT INTO funnel_events (visitor_id, phone, step, deal_id, source, medium, campaign, landing_path)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
     [
       visitor,
       phone || null,
@@ -56,7 +70,8 @@ async function recordEvent({ visitorId, phone, step, dealId, source, medium, cam
       cleanId(dealId, 40),
       cleanTag(source),
       cleanTag(medium),
-      cleanTag(campaign)
+      cleanTag(campaign),
+      cleanPath(landingPath)
     ]
   );
   return true;
@@ -140,6 +155,38 @@ async function report(days = 30) {
     [String(days)]
   );
 
+  // Which page each visitor arrived on, taken from their first event the same
+  // way the campaign table is, and for the same reason: a visitor who lands on
+  // /tech-deals and then browses the homepage arrived once, from search.
+  //
+  // This is the table that answers whether the SEO work is landing. Store and
+  // category pages exist to be entry points, so the number that matters is
+  // how many sessions START on one, not how many pages got viewed.
+  const { rows: landingPages } = await pool.query(
+    `WITH windowed AS (
+       SELECT * FROM funnel_events
+        WHERE at >= now() - ($1 || ' days')::interval
+          AND landing_path IS NOT NULL
+     ),
+     first_touch AS (
+       SELECT DISTINCT ON (visitor_id) visitor_id, landing_path, coalesce(source, 'direct') AS source
+         FROM windowed
+        ORDER BY visitor_id, at ASC, id ASC
+     ),
+     engaged AS (
+       SELECT DISTINCT visitor_id FROM windowed WHERE step <> 'page_view'
+     )
+     SELECT f.landing_path,
+            count(*)::int AS visitors,
+            count(*) FILTER (WHERE e.visitor_id IS NOT NULL)::int AS went_further
+       FROM first_touch f
+       LEFT JOIN engaged e ON e.visitor_id = f.visitor_id
+      GROUP BY f.landing_path
+      ORDER BY visitors DESC
+      LIMIT 30`,
+    [String(days)]
+  );
+
   const { rows: deals } = await pool.query(
     `SELECT f.deal_id,
             -- A deal deleted since the event (expired, curated out, or caught
@@ -167,6 +214,7 @@ async function report(days = 30) {
     outboundClicks: byStep.outbound_click?.events || 0,
     codeCopies: byStep.code_copied?.events || 0,
     campaigns,
+    landingPages,
     deals
   };
 }

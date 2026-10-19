@@ -170,6 +170,7 @@ ${relatedBlock(related)}
   </div>
 </footer>
 
+<script src="/js/track.js" defer></script>
 </body>
 </html>
 `;

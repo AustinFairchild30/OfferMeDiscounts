@@ -93,6 +93,14 @@ CREATE TABLE IF NOT EXISTS funnel_events (
   at         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Which page the visit started on. Added because the funnel could only see
+-- people who landed on the homepage: the store and category pages are server
+-- rendered with no script on them, so every visitor arriving from search --
+-- the entire point of those pages -- recorded nothing at all. Without the
+-- path, a page_view can't tell /tech-deals from the homepage either, so "is
+-- the SEO work landing" stays unanswerable even once the events arrive.
+ALTER TABLE funnel_events ADD COLUMN IF NOT EXISTS landing_path TEXT;
+
 CREATE INDEX IF NOT EXISTS funnel_events_step_at_idx ON funnel_events(step, at);
 CREATE INDEX IF NOT EXISTS funnel_events_visitor_idx ON funnel_events(visitor_id);
 CREATE INDEX IF NOT EXISTS funnel_events_campaign_idx ON funnel_events(campaign) WHERE campaign IS NOT NULL;

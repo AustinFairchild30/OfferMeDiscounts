@@ -593,7 +593,11 @@ router.post("/track", trackLimiter, async (req, res) => {
       dealId: req.body?.dealId,
       source: req.body?.source,
       medium: req.body?.medium,
-      campaign: req.body?.campaign
+      campaign: req.body?.campaign,
+      // Which page this happened on. The server-rendered pages send it too —
+      // they're the reason the field exists — and funnelStore drops anything
+      // that doesn't look like one of our paths.
+      landingPath: req.body?.landingPath
     });
   } catch (err) {
     console.error("Track error:", err.message);
