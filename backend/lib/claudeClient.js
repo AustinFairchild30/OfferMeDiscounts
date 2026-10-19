@@ -235,10 +235,29 @@ async function classifyAdvertiser(name, description, allowedCategories) {
       }
     ]
   });
-  const answer = (msg.content?.[0]?.text || "").trim();
-  // Only accept a value that's actually in the list — the point is to land in
-  // an existing browse group, so an invented category is worse than "Other".
-  return allowedCategories.find(c => c.toLowerCase() === answer.toLowerCase()) || "Other";
+  return matchCategory((msg.content?.[0]?.text || "").trim(), allowedCategories);
 }
 
-module.exports = { pickBestDeal, writeSmsCopy, parseInboundIntent, scoreDealsForUser, classifyAdvertiser };
+// Only accept a value that's actually in the list — the point is to land in an
+// existing browse group, so an invented category is worse than "Other".
+//
+// The match was once a plain case-insensitive equality, which quietly failed
+// on the ampersand names: asked to choose "Pets & Pet Care" a model will often
+// answer "Pets", and that fell through to "Other" — the exact failure that
+// stranded the Pets group in the first place. So punctuation is normalised
+// away and an unambiguous prefix is accepted. Ambiguity still loses: if an
+// answer prefixes two categories we can't tell which was meant, and guessing
+// is worse than "Other".
+function matchCategory(answer, allowedCategories) {
+  const norm = v => String(v || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const target = norm(answer);
+  if (!target) return "Other";
+
+  const exact = allowedCategories.find(c => norm(c) === target);
+  if (exact) return exact;
+
+  const prefixed = allowedCategories.filter(c => norm(c).startsWith(target));
+  return prefixed.length === 1 ? prefixed[0] : "Other";
+}
+
+module.exports = { pickBestDeal, writeSmsCopy, parseInboundIntent, scoreDealsForUser, classifyAdvertiser, matchCategory };

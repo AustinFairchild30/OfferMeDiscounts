@@ -30,7 +30,15 @@ const CATEGORY_TAGS = {
   Apparel: ["Casual Wear", "Activewear", "Outerwear"],
   Flowers: ["Bouquets", "Plants", "Same-Day Delivery"],
   Toys: ["Diecast & Collectibles", "Kids Toys", "Model Kits"],
-  Mens: ["Men's Clothing", "Men's Shoes", "Men's Accessories"]
+  Mens: ["Men's Clothing", "Men's Shoes", "Men's Accessories"],
+  // This list is also the menu the advertiser classifier picks from (see
+  // advertiserCategories.js, which passes Object.keys of it to Haiku), so a
+  // category missing here cannot be assigned to anybody. Pets was in
+  // CATEGORY_GROUPS but not here, which made the Pets browse group
+  // unreachable by construction: Nextrition Pet could only ever come back
+  // "Other" and land in the More bucket. Adding a group now means adding its
+  // category here too.
+  "Pets & Pet Care": ["Dog Food & Treats", "Cat Supplies", "Pet Health", "Pet Toys & Accessories"]
 };
 
 // CJ's category names are its own internal taxonomy, not shopper language:
@@ -48,7 +56,8 @@ const CATEGORY_LABELS = {
   "Mens": "Men's",
   "Babies": "Baby",
   "Hotel": "Hotels",
-  "Gourmet": "Food & Drink"
+  "Gourmet": "Food & Drink",
+  "Pets & Pet Care": "Pets"
 };
 
 // Browse groups for the filter bar. With the catalog spread across 22 raw CJ
