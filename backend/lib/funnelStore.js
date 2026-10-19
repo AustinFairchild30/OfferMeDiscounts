@@ -56,23 +56,57 @@ function cleanPath(value, max = 200) {
   return /^[A-Za-z0-9/._-]+$/.test(trimmed) ? trimmed.toLowerCase() : null;
 }
 
+// Whether the database has caught up with this file yet. Postgres answers
+// 42703 (undefined_column) when it hasn't, and the alternative to handling
+// that is what actually happened: the deploy shipped before the migration,
+// every INSERT threw, /api/track swallows errors by design so the browser
+// never notices, and the result is analytics silently recording nothing while
+// looking perfectly healthy. The same ordering bit us once before, on
+// deals.awin_promotion_id, where it crashed the server instead — louder, and
+// in hindsight preferable.
+//
+// So: try the full insert, and on a missing column fall back for the rest of
+// the process rather than losing the event. The flag resets on restart, which
+// is also when a migration would have run.
+let hasLandingPath = true;
+const MISSING_COLUMN = "42703";
+
 async function recordEvent({ visitorId, phone, step, dealId, source, medium, campaign, landingPath }) {
   const visitor = cleanId(visitorId);
   if (!visitor || !isValidStep(step)) return false;
 
+  const base = [
+    visitor,
+    phone || null,
+    step,
+    cleanId(dealId, 40),
+    cleanTag(source),
+    cleanTag(medium),
+    cleanTag(campaign)
+  ];
+
+  if (hasLandingPath) {
+    try {
+      await pool.query(
+        `INSERT INTO funnel_events (visitor_id, phone, step, deal_id, source, medium, campaign, landing_path)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        base.concat([cleanPath(landingPath)])
+      );
+      return true;
+    } catch (err) {
+      if (err.code !== MISSING_COLUMN) throw err;
+      hasLandingPath = false;
+      console.warn(
+        "funnel_events.landing_path is missing — run `npm run migrate`. " +
+        "Recording events without the landing page until then."
+      );
+    }
+  }
+
   await pool.query(
-    `INSERT INTO funnel_events (visitor_id, phone, step, deal_id, source, medium, campaign, landing_path)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-    [
-      visitor,
-      phone || null,
-      step,
-      cleanId(dealId, 40),
-      cleanTag(source),
-      cleanTag(medium),
-      cleanTag(campaign),
-      cleanPath(landingPath)
-    ]
+    `INSERT INTO funnel_events (visitor_id, phone, step, deal_id, source, medium, campaign)
+     VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+    base
   );
   return true;
 }
@@ -162,7 +196,12 @@ async function report(days = 30) {
   // This is the table that answers whether the SEO work is landing. Store and
   // category pages exist to be entry points, so the number that matters is
   // how many sessions START on one, not how many pages got viewed.
-  const { rows: landingPages } = await pool.query(
+  // Same guard as recordEvent, for the same reason: without it a missing
+  // column takes down the entire funnel report — campaigns, deals and all —
+  // over the one table that happens to be new.
+  const landingPages = await (async () => {
+    try {
+      const { rows } = await pool.query(
     `WITH windowed AS (
        SELECT * FROM funnel_events
         WHERE at >= now() - ($1 || ' days')::interval
@@ -184,8 +223,14 @@ async function report(days = 30) {
       GROUP BY f.landing_path
       ORDER BY visitors DESC
       LIMIT 30`,
-    [String(days)]
-  );
+        [String(days)]
+      );
+      return rows;
+    } catch (err) {
+      if (err.code !== MISSING_COLUMN) throw err;
+      return [];
+    }
+  })();
 
   const { rows: deals } = await pool.query(
     `SELECT f.deal_id,
