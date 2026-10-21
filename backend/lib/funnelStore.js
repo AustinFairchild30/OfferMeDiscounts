@@ -65,11 +65,24 @@ function cleanPath(value, max = 200) {
 // deals.awin_promotion_id, where it crashed the server instead — louder, and
 // in hindsight preferable.
 //
-// So: try the full insert, and on a missing column fall back for the rest of
-// the process rather than losing the event. The flag resets on restart, which
-// is also when a migration would have run.
-let hasLandingPath = true;
+// So: try the full insert, and on a missing column fall back rather than
+// losing the event — then try again a few minutes later.
+//
+// The retry is the part worth keeping. The first version latched off until
+// the process restarted, on the reasoning that a migration arrives with a
+// deploy. It doesn't always: the column was created by hand against a running
+// server, and the flag stayed off for hours afterwards, so every event
+// recorded a null path against a database that could by then store one. A
+// latch that never re-checks turns a temporary condition into a permanent one
+// and says nothing while it does.
 const MISSING_COLUMN = "42703";
+const RECHECK_AFTER_MS = 5 * 60 * 1000;
+let landingPathUnavailableSince = null;
+
+function shouldTryLandingPath() {
+  if (landingPathUnavailableSince === null) return true;
+  return Date.now() - landingPathUnavailableSince >= RECHECK_AFTER_MS;
+}
 
 async function recordEvent({ visitorId, phone, step, dealId, source, medium, campaign, landingPath }) {
   const visitor = cleanId(visitorId);
@@ -85,21 +98,28 @@ async function recordEvent({ visitorId, phone, step, dealId, source, medium, cam
     cleanTag(campaign)
   ];
 
-  if (hasLandingPath) {
+  if (shouldTryLandingPath()) {
     try {
       await pool.query(
         `INSERT INTO funnel_events (visitor_id, phone, step, deal_id, source, medium, campaign, landing_path)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
         base.concat([cleanPath(landingPath)])
       );
+      if (landingPathUnavailableSince !== null) {
+        landingPathUnavailableSince = null;
+        console.log("funnel_events.landing_path is available again; recording landing pages.");
+      }
       return true;
     } catch (err) {
       if (err.code !== MISSING_COLUMN) throw err;
-      hasLandingPath = false;
-      console.warn(
-        "funnel_events.landing_path is missing — run `npm run migrate`. " +
-        "Recording events without the landing page until then."
-      );
+      if (landingPathUnavailableSince === null) {
+        console.warn(
+          "funnel_events.landing_path is missing — run `npm run schema`. " +
+          "Recording events without the landing page, and re-checking every " +
+          `${RECHECK_AFTER_MS / 60000} minutes.`
+        );
+      }
+      landingPathUnavailableSince = Date.now();
     }
   }
 
