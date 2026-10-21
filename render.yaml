@@ -1,3 +1,12 @@
+# NOT the source of truth. This service was created by hand in the Render
+# dashboard rather than from this blueprint, so the dashboard's own settings
+# win and edits here do not reach it — `plan: starter` was set by clicking
+# through the UI, and a startCommand added to this file on 1 Oct never ran,
+# which is how a migration silently stopped happening for three weeks.
+#
+# Treat this as documentation of the intended configuration, and make real
+# changes in the dashboard: Settings -> Build & Deploy. Keep the two in step.
+
 services:
   - type: web
     name: offermediscounts
@@ -18,14 +27,25 @@ services:
     # an unrelated backend change happened to flush it through.
     # The commands cd in so npm and dotenv still resolve against backend/.
     buildCommand: cd backend && npm install
-    # Migrations run on boot, not by hand. Adding awin_promotion_id to the
-    # deals SELECT proved why: the column was in the code before it was in the
-    # database, and every read threw errorMissingColumn — the whole site down
-    # until someone remembered a manual step that nothing documents at deploy
-    # time. schema.sql is entirely IF NOT EXISTS, so this is idempotent, and a
-    # migration that does fail now fails the boot loudly with the previous
-    # version still serving, instead of shipping a crash.
-    startCommand: cd backend && npm run migrate && npm start
+    # Schema changes apply here, before the start command, not by hand.
+    #
+    # The reason is on the record twice. Adding awin_promotion_id to the deals
+    # SELECT put the column in the code before it was in the database and took
+    # the site down on boot. Adding funnel_events.landing_path did the quieter
+    # version of the same thing: /api/track swallows errors by design, so every
+    # event was discarded for a day while the endpoint kept answering 200.
+    #
+    # It is `npm run schema`, not `npm run migrate`: migrate also seeds deals
+    # and imports users from data/users.json, and an unattended data import on
+    # every deploy is not something to leave armed. schema.sql is entirely
+    # IF NOT EXISTS, so this is idempotent and safe to re-run.
+    #
+    # Pre-deploy rather than folded into startCommand, which is what this file
+    # claimed for three weeks: pre-deploy runs once per deploy instead of on
+    # every restart, crash recovery and scale event, and a failure here cancels
+    # the deploy with the previous version still serving.
+    preDeployCommand: cd backend && npm run schema
+    startCommand: cd backend && npm start
     envVars:
       - key: TWILIO_ACCOUNT_SID
         sync: false
