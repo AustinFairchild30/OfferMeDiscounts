@@ -38,6 +38,17 @@ CREATE TABLE IF NOT EXISTS cj_excluded_links (
   excluded_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Why a link left the catalog. Added 2026-10-21, because the exclusion
+-- tables answered "what did we drop" but not "what was wrong with it", and
+-- those are different questions: a dead merchant page is a fact about the
+-- industry, while an advertiser we curated out is a fact about our taste.
+-- Conflated, the count means nothing. 353 rows existed before this column
+-- and stay NULL — "we didn't record it" is the honest value, and guessing
+-- retroactively would poison the first dataset this is meant to produce.
+--
+-- Values: 'dead_link' (failed two consecutive checks), 'removed_by_admin'.
+ALTER TABLE cj_excluded_links       ADD COLUMN IF NOT EXISTS reason TEXT;
+
 CREATE TABLE IF NOT EXISTS users (
   phone           TEXT PRIMARY KEY,
   registered_at   TIMESTAMPTZ,
@@ -182,11 +193,13 @@ CREATE TABLE IF NOT EXISTS awin_excluded_promotions (
   awin_promotion_id TEXT PRIMARY KEY,
   excluded_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+ALTER TABLE awin_excluded_promotions ADD COLUMN IF NOT EXISTS reason TEXT;
 
 CREATE TABLE IF NOT EXISTS impact_excluded_ads (
   impact_ad_id TEXT PRIMARY KEY,
   excluded_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+ALTER TABLE impact_excluded_ads ADD COLUMN IF NOT EXISTS reason TEXT;
 
 -- A ready-to-use logo URL, for sources that serve their own brand logo.
 -- Impact does (behind its API credentials, hence the proxy at /api/logo);

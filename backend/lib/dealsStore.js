@@ -162,28 +162,52 @@ async function upsertImpactDeals(impactDeals) {
   return { created, updated, unchanged, skipped, total: impactDeals.length };
 }
 
+// One exclusion table per network, keyed on that network's own id, and the
+// three INSERTs were written out longhand in two different files. The reason
+// column made that four places to keep in step, so it is one function now.
+//
+// `reason` is not decoration: it is the difference between "this merchant's
+// landing page 404s", which says something about the industry, and "we chose
+// not to carry this advertiser", which says something about us. A count that
+// mixes them answers neither question.
+const EXCLUSION_TABLES = {
+  cj: { table: "cj_excluded_links", column: "cj_link_id", field: "cj_link_id" },
+  impact: { table: "impact_excluded_ads", column: "impact_ad_id", field: "impact_ad_id" },
+  awin: { table: "awin_excluded_promotions", column: "awin_promotion_id", field: "awin_promotion_id" }
+};
+
+// ON CONFLICT updates the reason rather than doing nothing: a link curated
+// out by hand and later found dead has genuinely changed category, and the
+// newer fact is the truer one. The row's excluded_at deliberately keeps its
+// original value — that is when it left the catalog.
+async function recordExclusion(source, key, reason) {
+  const spec = EXCLUSION_TABLES[source];
+  if (!spec || !key) return false;
+  await pool.query(
+    `INSERT INTO ${spec.table} (${spec.column}, reason) VALUES ($1, $2)
+     ON CONFLICT (${spec.column}) DO UPDATE SET reason = EXCLUDED.reason`,
+    [String(key), reason || null]
+  );
+  return true;
+}
+
+// The network key is read straight from the row rather than from the deal
+// object, because COLUMNS deliberately omits cj_link_id — it would otherwise
+// ride along on every object readDeals hands to /api/deals. Taking the key
+// off the deal object looks tidier and silently excludes nothing for CJ,
+// which means a deal deleted by hand reappears on the next sync.
 async function removeDeal(id) {
   const existing = await getDealById(id);
   if (!existing) return false;
-  if (existing.source === "impact" && existing.impact_ad_id) {
-    await pool.query(
-      "INSERT INTO impact_excluded_ads (impact_ad_id) VALUES ($1) ON CONFLICT DO NOTHING",
-      [existing.impact_ad_id]
+
+  const spec = EXCLUSION_TABLES[existing.source];
+  if (spec) {
+    const { rows } = await pool.query(
+      `SELECT ${spec.field} AS key FROM deals WHERE id = $1`, [id]
     );
+    await recordExclusion(existing.source, rows[0]?.key, "removed_by_admin");
   }
-  if (existing.source === "awin" && existing.awin_promotion_id) {
-    await pool.query(
-      "INSERT INTO awin_excluded_promotions (awin_promotion_id) VALUES ($1) ON CONFLICT DO NOTHING",
-      [existing.awin_promotion_id]
-    );
-  }
-  if (existing.source === "cj") {
-    const { rows } = await pool.query("SELECT cj_link_id FROM deals WHERE id = $1", [id]);
-    const cjLinkId = rows[0]?.cj_link_id;
-    if (cjLinkId) {
-      await pool.query("INSERT INTO cj_excluded_links (cj_link_id) VALUES ($1) ON CONFLICT DO NOTHING", [cjLinkId]);
-    }
-  }
+
   const { rowCount } = await pool.query("DELETE FROM deals WHERE id = $1", [id]);
   return rowCount > 0;
 }
@@ -318,4 +342,4 @@ async function purgeExpiredDeals() {
   return { removed: rowCount };
 }
 
-module.exports = { readDeals, getDealById, addDeal, updateDeal, removeDeal, upsertCjDeals, upsertImpactDeals, pruneImpactDeals, upsertAwinDeals, pruneCjDeals, pruneAwinDeals, purgeBlockedDeals, purgeExpiredDeals };
+module.exports = { readDeals, getDealById, addDeal, updateDeal, removeDeal, recordExclusion, upsertCjDeals, upsertImpactDeals, pruneImpactDeals, upsertAwinDeals, pruneCjDeals, pruneAwinDeals, purgeBlockedDeals, purgeExpiredDeals };

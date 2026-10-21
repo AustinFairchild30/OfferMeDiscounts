@@ -6,6 +6,7 @@
 // automatically instead of waiting for a user to report a dead link.
 
 const pool = require("../db/pool");
+const { recordExclusion } = require("./dealsStore");
 
 const CONCURRENCY = 10;
 const TIMEOUT_MS = 10000;
@@ -36,7 +37,8 @@ async function runInBatches(items, worker, size) {
 
 async function checkAndPruneDeadLinks() {
   const { rows: deals } = await pool.query(
-    "SELECT id, link, cj_link_id, link_check_failures FROM deals WHERE link IS NOT NULL"
+    `SELECT id, link, source, cj_link_id, impact_ad_id, awin_promotion_id, link_check_failures
+       FROM deals WHERE link IS NOT NULL`
   );
 
   let checked = 0;
@@ -57,9 +59,18 @@ async function checkAndPruneDeadLinks() {
 
       const failures = d.link_check_failures + 1;
       if (failures >= FAILURE_THRESHOLD) {
-        if (d.cj_link_id) {
-          await pool.query("INSERT INTO cj_excluded_links (cj_link_id) VALUES ($1) ON CONFLICT DO NOTHING", [d.cj_link_id]);
-        }
+        // All three networks, not just CJ. Recording the exclusion is what
+        // makes the removal stick: every upsert consults its network's
+        // exclusion table, so an Impact or Awin promotion that was deleted
+        // for being dead used to come straight back on the next sync, get
+        // checked, fail, and be deleted again — a loop that re-tested a known
+        // dead link daily and never recorded that it had happened.
+        //
+        // It is also what makes the dead-link count mean anything: measured
+        // on one network out of three, it describes CJ rather than the
+        // industry.
+        const key = d.cj_link_id || d.impact_ad_id || d.awin_promotion_id;
+        await recordExclusion(d.source, key, "dead_link");
         const { rows } = await pool.query("DELETE FROM deals WHERE id = $1 RETURNING title", [d.id]);
         if (rows[0]) removedTitles.push(rows[0].title);
         removed++;
