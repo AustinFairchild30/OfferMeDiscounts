@@ -170,8 +170,15 @@ function cleanStoreName(store) {
 
   const cleaned = raw
     .replace(/\s*Affiliate\s*(Program)?\s*$/i, "")
-    .replace(/,?\s*\b(Inc|LLC|L\.L\.C|Corp|Corporation|Ltd|Co)\b\.?\s*$/i, "")
+    .replace(/,?\s*\b(Inc|LLC|L\.L\.C|LLP|LP|Corp|Corporation|Ltd|Co)\b\.?\s*$/i, "")
     .replace(/\s+(US|USA)\s*$/, "") // case-sensitive: only the region tag, never a word ending in "us"
+    // Awin tags the region in parentheses — "Nextrition Pet (US)", "Fanttik
+    // (US)" — which is programme bookkeeping, not a brand name, and it was
+    // reaching the page title, the h1 and the URL slug. Restricted to short
+    // region-shaped codes so a parenthetical that is part of the name
+    // survives. Only US programmes are carried, but the others are listed
+    // because the tag is wrong in a title whichever country it names.
+    .replace(/\s*\((US|USA|CA|UK|GB|EU|AU|NZ|INT|INTL)\)\s*$/i, "")
     .replace(/\.(com|net|org)\s*$/i, "")
     .trim();
 
