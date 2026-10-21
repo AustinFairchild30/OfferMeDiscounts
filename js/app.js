@@ -1529,7 +1529,14 @@ async function showRevealStep(deal, isFirstUnlock) {
   const data = await fetchDealCode(deal.id);
   if (!data) return; // fetchDealCode has already moved them where they need to go
   applyRevealCodeAndLink(data.code, data.link || deal.link);
-  track("code_revealed", deal.id);
+  // returning_unlock, not code_revealed. Both callers of this function are
+  // people who verified on an earlier visit — the returning-visitor branch in
+  // openDealModal, and mockUnlock's demo fallback. Neither entered a number
+  // today. Recording them as code_revealed put more people at the bottom of
+  // the funnel than ever reached the top of it: 19 reveals against zero phone
+  // submissions. The genuine first reveal, straight after OTP, is tracked in
+  // populateRevealStep instead.
+  track("returning_unlock", deal.id);
 }
 
 function copyCode() {

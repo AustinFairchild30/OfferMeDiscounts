@@ -268,6 +268,11 @@ const FUNNEL_LABELS = {
   code_revealed: "Got the code"
 };
 
+// Outside the funnel: a returning visitor opening a code they were already
+// entitled to. Shown as its own figure rather than folded into "Got the
+// code", which previously made the bottom of the funnel wider than the top.
+const RETURNING_LABEL = "Returning unlocks";
+
 function pct(n) {
   return `${n.toFixed(1)}%`;
 }
@@ -352,6 +357,7 @@ async function loadFunnel() {
       <div class="stat-card"><div class="label">Outbound clicks</div><div class="value">${report.outboundClicks}</div></div>
       <div class="stat-card"><div class="label">Codes copied</div><div class="value">${report.codeCopies}</div></div>
       <div class="stat-card"><div class="label">Visitor → registered</div><div class="value">${pct(report.funnel[3]?.ofTop || 0)}</div></div>
+      <div class="stat-card"><div class="label">${RETURNING_LABEL}</div><div class="value">${report.returningUnlocks ?? 0}</div></div>
     </div>
 
     <div class="section-head"><h2 style="font-size:16px;">Where they came from</h2></div>

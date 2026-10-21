@@ -10,13 +10,22 @@ const STEPS = [
   "deal_view",      // opened a deal's detail modal
   "phone_submit",   // entered a number and asked for a code
   "otp_verified",   // proved the number was theirs
-  "code_revealed",  // reached the payoff
+  "code_revealed",  // reached the payoff, having just verified
   "code_copied",    // took the coupon code
-  "outbound_click"  // clicked through to the retailer — the affiliate event
+  "outbound_click", // clicked through to the retailer — the affiliate event
+  // A visitor who verified on an earlier visit opening a code now. It is not
+  // a funnel stage: they entered no number and verified nothing today, so
+  // counting it as code_revealed made the funnel report more people reaching
+  // the payoff than ever entered a number — 19 reveals against zero phone
+  // submissions, which is what made the report look broken rather than empty.
+  "returning_unlock"
 ];
 
 // The order above is also the funnel's order, which report() relies on.
-const FUNNEL_ORDER = STEPS.filter(s => s !== "code_copied" && s !== "outbound_click");
+// code_copied and outbound_click come after the funnel ends; returning_unlock
+// sits outside it entirely.
+const NOT_FUNNEL_STEPS = new Set(["code_copied", "outbound_click", "returning_unlock"]);
+const FUNNEL_ORDER = STEPS.filter(s => !NOT_FUNNEL_STEPS.has(s));
 
 function isValidStep(step) {
   return STEPS.includes(step);
@@ -278,6 +287,7 @@ async function report(days = 30) {
     funnel,
     outboundClicks: byStep.outbound_click?.events || 0,
     codeCopies: byStep.code_copied?.events || 0,
+    returningUnlocks: byStep.returning_unlock?.events || 0,
     campaigns,
     landingPages,
     deals
