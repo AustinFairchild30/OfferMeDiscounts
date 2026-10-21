@@ -8,7 +8,8 @@
   "scripts": {
     "dev": "node server.js",
     "start": "node server.js",
-    "migrate": "node db/migrate.js"
+    "migrate": "node db/migrate.js",
+    "schema": "node db/apply-schema.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.0",
