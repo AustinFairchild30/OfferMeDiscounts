@@ -169,7 +169,17 @@ const STORE_DISPLAY_NAMES = {
   "loveisarose.com": "Love Is A Rose",
   "loveisarose": "Love Is A Rose",
   "jumy bee - us": "Jumy Bee",
-  "jumy bee": "Jumy Bee"
+  "jumy bee": "Jumy Bee",
+  // AUTELOnline is Autel's own store and we already carry Autel through
+  // another programme. Without this it becomes a second store page and one
+  // brand's offers split across two, each too thin to index.
+  "autelonline": "Autel",
+  // A programme name, not a brand: left alone it publishes as
+  // /argendon-crawlspace-and-commercial-dehumidifier-coupons with that whole
+  // phrase as the page title.
+  "argendon crawlspace & commercial dehumidifier": "Argendon",
+  "argendon crawlspace and commercial dehumidifier": "Argendon",
+  "argendon": "Argendon"
 };
 
 // CJ's advertiser-name is an account name, not a brand name: it carries the
@@ -261,7 +271,13 @@ const BLOCKED_ADVERTISERS = new Set([
   // card renewal" names nothing it could match on — which is how this
   // category of advertiser actually writes its offers. Verified from their
   // own site: "get your medical marijuana card online, same day".
-  "onlinemedicalcard", "online medical card", "onlinemedicalcard.com"
+  "onlinemedicalcard", "online medical card", "onlinemedicalcard.com",
+  // Weapons. The F in SHAFT is firearms, and carriers read that broadly
+  // enough to include archery tackle — a crossbow is a weapon however it is
+  // marketed. The toll-free number is the product, not any one campaign, so
+  // the trade is a handful of commissions against the whole messaging
+  // channel. Both of these arrived as Awin invitations.
+  "centerpoint archery", "centerpoint", "ravin crossbows", "ravin"
 ]);
 
 // The domain is frequently more honest than the advertiser name. "Shenzhen
@@ -272,7 +288,8 @@ const BLOCKED_ADVERTISERS = new Set([
 const BLOCKED_DOMAINS = new Set([
   "stdcheck.com", "sourcemore.com",
   "adorime.com", "galaxytreats.com", "bestrealdoll.com", "drdabber.com",
-  "onlinemedicalcard.com"
+  "onlinemedicalcard.com",
+  "centerpointarchery.com", "ravincrossbows.com"
 ]);
 
 // Matched against the STORE NAME, where a loose term is safe: no legitimate
@@ -280,14 +297,21 @@ const BLOCKED_DOMAINS = new Set([
 // name themselves plainly — Vapesourcing, Morevaping, Vapor Empire, Ejuice
 // Connect, Flawless Vape Shop, Portable Hookahs.
 const BLOCKED_STORE_PATTERN =
-  /vapor|vape|vaping|hookah|shisha|e-?juice|e-?liquid|e-?cig|tobacco|cigar|nicotine|snus|smoke\s?(shop|cartel)|head\s?shop|glass\s?pipe|water\s?pipe|porn|erotic|fetish|bdsm|dildo|vibrator|sex\s?(toy|doll|shop)|real\s?doll|love\s?doll|onlyfans|brothel|adult\s?(toy|store|shop|video|film)|cannabis|marijuana|\bthc\b|\bcbd\b|delta[\s-]?[89]\b|kratom|dispensary|hemp|psilocybin|dabber|e-?rig\b|dab\s?rig|bong\b/i;
+  /vapor|vape|vaping|hookah|shisha|e-?juice|e-?liquid|e-?cig|tobacco|cigar|nicotine|snus|smoke\s?(shop|cartel)|head\s?shop|glass\s?pipe|water\s?pipe|porn|erotic|fetish|bdsm|dildo|vibrator|sex\s?(toy|doll|shop)|real\s?doll|love\s?doll|onlyfans|brothel|adult\s?(toy|store|shop|video|film)|cannabis|marijuana|\bthc\b|\bcbd\b|delta[\s-]?[89]\b|kratom|dispensary|hemp|psilocybin|dabber|e-?rig\b|dab\s?rig|bong\b|archery|crossbow|bowhunt|firearm|ammunition|\bammo\b|gun\s?(shop|store|smith)|handgun/i;
+
+// The weapons words are deliberately narrower in the name pattern above than
+// in the offer text below, which inverts the usual rule in this file. Brand
+// names use them metaphorically — Shotgun Coffee is a roaster, Pistol Lake
+// sells clothes, Rifle Paper Co sells stationery — while "shop rifles and
+// ammunition" in offer copy is never anything else. The actual weapons
+// advertisers are caught by name and domain in the sets above.
 
 // Matched against the OFFER TEXT, where the same looseness would misfire.
 // Deliberately excludes "vapor" (a Vapormax sneaker deal), "smok" (smoked
 // salmon in Gourmet, a BBQ smoker in Home) and "puff" (puffer jackets, puff
 // pastry, powder puffs) — all of which appear in ordinary retail copy.
 const BLOCKED_SUBJECT_MATTER =
-  /\b(std|sti|hiv|herpes|chlamydia|gonorrhea|syphilis)\b|sexual(ly)?[\s-]?(health|transmitted)|\bviagra\b|\bcialis\b|erectile|\bescort\b|\b(vape|vapes|vaping|vaper|vapers)\b|\b(e-?juices?|e-?liquids?|e-?cigs?|e-?cigarettes?)\b|\b(tobacco|nicotine|hookah|shisha|cigarette|cigarettes|cigar|cigars|snus)\b|\b(porn|erotic|fetish|bdsm|dildos?|vibrators?|condoms?)\b|\bmasturbat|\bsex\s?(toys?|dolls?)\b|\b(cannabis|marijuana|thc|cbd|kratom|psilocybin|bong|bongs)\b|\bdelta[\s-]?[89]\b|\b(dab|e)[\s-]?rigs?\b|\b(head\s?shop|glass\s?pipes?|water\s?pipes?)\b/i;
+  /\b(std|sti|hiv|herpes|chlamydia|gonorrhea|syphilis)\b|sexual(ly)?[\s-]?(health|transmitted)|\bviagra\b|\bcialis\b|erectile|\bescort\b|\b(vape|vapes|vaping|vaper|vapers)\b|\b(e-?juices?|e-?liquids?|e-?cigs?|e-?cigarettes?)\b|\b(tobacco|nicotine|hookah|shisha|cigarette|cigarettes|cigar|cigars|snus)\b|\b(porn|erotic|fetish|bdsm|dildos?|vibrators?|condoms?)\b|\bmasturbat|\bsex\s?(toys?|dolls?)\b|\b(cannabis|marijuana|thc|cbd|kratom|psilocybin|bong|bongs)\b|\bdelta[\s-]?[89]\b|\b(dab|e)[\s-]?rigs?\b|\b(head\s?shop|glass\s?pipes?|water\s?pipes?)\b|\b(archery|crossbows?|bowhunting|firearms?|ammunition|ammo|rifles?|shotguns?|handguns?|pistols?)\b/i;
 
 function isBlockedAdvertiser(store, text = "", domain = "") {
   const name = String(store || "").trim().toLowerCase();
