@@ -444,15 +444,10 @@ router.post("/cron/sync-cj", requireCronSecret, async (req, res) => {
     // Back in the nightly job. It was moved out when a sync meant paging the
     // whole 31k-row feed; with the membership filter it's one request.
     const awinResult = await runAwinSync();
-    // TEMPORARILY DISABLED 2026-10-21. checkAndPruneDeadLinks fetches each
-    // deal's `link`, which is the affiliate TRACKING url — following it is a
-    // click, by design, and we were doing it to every deal every day. Awin
-    // showed 594 clicks and 0 transactions for October against a site with
-    // ~27 real visitors and no deal opens at all. To a network that reads as
-    // bot traffic, and the programmes approved this week are the ones at
-    // risk. Re-enabled in the next commit once the checker follows the
-    // merchant's own destination url instead.
-    const linkCheckResult = { skipped: "link check disabled pending tracking-url fix" };
+    // Re-enabled: the sweep now fetches check_url, the merchant's own page,
+    // instead of the affiliate tracking link it was following before. Runs
+    // after both syncs so newly-arrived deals are covered by the same pass.
+    const linkCheckResult = await checkAndPruneDeadLinks();
     const blockedResult = await purgeBlockedDeals();
     const expiredResult = await purgeExpiredDeals();
     res.json({ success: true, ...syncResult, impact: impactResult, awin: awinResult, linkCheck: linkCheckResult, cjPruned, blocked: blockedResult, expired: expiredResult });

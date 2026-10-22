@@ -485,6 +485,11 @@ function mapLinkToDeal(link) {
     description,
     expires: parseExpires(link["promotion-end-date"]),
     link: link.clickUrl || link.clickURL,
+    // The advertiser's own destination, already relied on for the logo
+    // domain and guaranteed present by the filter below. The sweep checks
+    // this instead of clickUrl, which counts a click every time it is
+    // followed.
+    checkUrl: link.destination || null,
     emoji: CATEGORY_EMOJI[link.category] || "🏷️",
     logoDomain: extractLogoDomain(link.destination)
   };

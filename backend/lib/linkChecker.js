@@ -16,6 +16,12 @@ const TIMEOUT_MS = 10000;
 // extra day.
 const FAILURE_THRESHOLD = 2;
 
+// NEVER pass a deal's `link` to this. That is the affiliate tracking url on
+// all three networks, and following it registers a click — which is the only
+// reason the url exists. Doing it nightly for every deal put 594 clicks and
+// zero transactions on Awin's October dashboard, for a site with about 27
+// real visitors, and a 0% conversion rate at that volume is what gets a
+// publisher terminated. Check `check_url`, the merchant's own page.
 async function isDead(url) {
   try {
     const res = await fetch(url, { redirect: "follow", signal: AbortSignal.timeout(TIMEOUT_MS) });
@@ -36,9 +42,12 @@ async function runInBatches(items, worker, size) {
 }
 
 async function checkAndPruneDeadLinks() {
+  // check_url, not link — see isDead. A deal whose network gave us no plain
+  // destination is skipped rather than swept through its tracking url: an
+  // unswept dead link is a smaller problem than inventing a click for it.
   const { rows: deals } = await pool.query(
-    `SELECT id, link, source, cj_link_id, impact_ad_id, awin_promotion_id, link_check_failures
-       FROM deals WHERE link IS NOT NULL`
+    `SELECT id, check_url, source, cj_link_id, impact_ad_id, awin_promotion_id, link_check_failures
+       FROM deals WHERE check_url IS NOT NULL`
   );
 
   let checked = 0;
@@ -49,7 +58,7 @@ async function checkAndPruneDeadLinks() {
     deals,
     async d => {
       checked++;
-      const dead = await isDead(d.link);
+      const dead = await isDead(d.check_url);
       if (!dead) {
         if (d.link_check_failures > 0) {
           await pool.query("UPDATE deals SET link_check_failures = 0 WHERE id = $1", [d.id]);

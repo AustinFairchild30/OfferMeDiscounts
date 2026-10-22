@@ -29,6 +29,16 @@ ALTER TABLE deals ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'manual'
 ALTER TABLE deals ADD COLUMN IF NOT EXISTS cj_link_id TEXT;
 ALTER TABLE deals ADD COLUMN IF NOT EXISTS logo_domain TEXT;
 ALTER TABLE deals ADD COLUMN IF NOT EXISTS link_check_failures INTEGER NOT NULL DEFAULT 0;
+-- The merchant's own destination url, kept beside `link` so the dead-link
+-- sweep has something safe to fetch. `link` is the affiliate TRACKING url on
+-- every network, and following it is a click — that is what it is for. The
+-- sweep was fetching it for every deal daily, which showed up in Awin as 594
+-- clicks and 0 transactions for a month in which the site had ~27 visitors.
+--
+-- Nullable: a deal whose network gave us no plain destination simply is not
+-- swept, which is a smaller problem than inventing clicks for it.
+ALTER TABLE deals ADD COLUMN IF NOT EXISTS check_url TEXT;
+
 CREATE UNIQUE INDEX IF NOT EXISTS deals_cj_link_id_idx ON deals(cj_link_id) WHERE cj_link_id IS NOT NULL;
 
 -- Deleting a CJ-sourced deal from the admin dashboard records its link-id

@@ -156,6 +156,11 @@ function mapPromotionToDeal(promotion, programmesById) {
     expires: toIsoDate(promotion.endDate) || NO_EXPIRY,
     // urlTracking, never url — see the header. url earns nothing.
     link: promotion.urlTracking || null,
+    // ...but `url` is exactly what the dead-link sweep needs: the merchant's
+    // own page, with no affiliate parameters, so checking it registers
+    // nothing. Fetching urlTracking daily is what put 594 clicks and no
+    // transactions on the October dashboard.
+    checkUrl: promotion.url || null,
     logoDomain: domainOf(programme.displayUrl || promotion.url || ""),
     // Sector is Awin's own classification. It doesn't map onto our taxonomy,
     // but it's a useful hint for the one-off Haiku classification.

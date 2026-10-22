@@ -96,20 +96,20 @@ async function upsertCjDeals(cjDeals) {
       // correctly — a null code staying null must not read as a change.
       const { rowCount } = await pool.query(
         `UPDATE deals SET title=$2, brand=$3, store=$4, category=$5, discount=$6, code=$7,
-           description=$8, expires=$9, link=$10, logo_domain=$11, updated_at=now()
+           description=$8, expires=$9, link=$10, logo_domain=$11, check_url=$12, updated_at=now()
          WHERE cj_link_id=$1
-           AND (title, brand, store, category, discount, code, description, expires, link, logo_domain)
-               IS DISTINCT FROM ($2,$3,$4,$5,$6,$7,$8,$9::date,$10,$11)`,
-        [d.cjLinkId, d.title, d.brand, d.store, d.category, d.discount, d.code, d.description, d.expires, d.link, d.logoDomain]
+           AND (title, brand, store, category, discount, code, description, expires, link, logo_domain, check_url)
+               IS DISTINCT FROM ($2,$3,$4,$5,$6,$7,$8,$9::date,$10,$11,$12)`,
+        [d.cjLinkId, d.title, d.brand, d.store, d.category, d.discount, d.code, d.description, d.expires, d.link, d.logoDomain, d.checkUrl || null]
       );
       if (rowCount) updated++;
       else unchanged++;
     } else {
       const id = await makeDealId();
       await pool.query(
-        `INSERT INTO deals (id, title, brand, store, category, discount, code, description, expires, featured, emoji, link, source, cj_link_id, logo_domain)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,false,$10,$11,'cj',$12,$13)`,
-        [id, d.title, d.brand, d.store, d.category, d.discount, d.code, d.description, d.expires, d.emoji, d.link, d.cjLinkId, d.logoDomain]
+        `INSERT INTO deals (id, title, brand, store, category, discount, code, description, expires, featured, emoji, link, source, cj_link_id, logo_domain, check_url)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,false,$10,$11,'cj',$12,$13,$14)`,
+        [id, d.title, d.brand, d.store, d.category, d.discount, d.code, d.description, d.expires, d.emoji, d.link, d.cjLinkId, d.logoDomain, d.checkUrl || null]
       );
       created++;
     }
@@ -141,20 +141,20 @@ async function upsertImpactDeals(impactDeals) {
     if (existingRows[0]) {
       const { rowCount } = await pool.query(
         `UPDATE deals SET title=$2, brand=$3, store=$4, category=$5, discount=$6, code=$7,
-           description=$8, expires=$9, link=$10, logo_domain=$11, logo_url=$12, updated_at=now()
+           description=$8, expires=$9, link=$10, logo_domain=$11, logo_url=$12, check_url=$13, updated_at=now()
          WHERE impact_ad_id=$1
-           AND (title, brand, store, category, discount, code, description, expires, link, logo_domain, logo_url)
-               IS DISTINCT FROM ($2,$3,$4,$5,$6,$7,$8,$9::date,$10,$11,$12)`,
-        [d.impactAdId, d.title, d.brand, d.store, d.category, d.discount, d.code, d.description, d.expires, d.link, d.logoDomain, d.logoUrl]
+           AND (title, brand, store, category, discount, code, description, expires, link, logo_domain, logo_url, check_url)
+               IS DISTINCT FROM ($2,$3,$4,$5,$6,$7,$8,$9::date,$10,$11,$12,$13)`,
+        [d.impactAdId, d.title, d.brand, d.store, d.category, d.discount, d.code, d.description, d.expires, d.link, d.logoDomain, d.logoUrl, d.checkUrl || null]
       );
       if (rowCount) updated++;
       else unchanged++;
     } else {
       const id = await makeDealId();
       await pool.query(
-        `INSERT INTO deals (id, title, brand, store, category, discount, code, description, expires, featured, emoji, link, source, impact_ad_id, logo_domain, logo_url)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,false,$10,$11,'impact',$12,$13,$14)`,
-        [id, d.title, d.brand, d.store, d.category, d.discount, d.code, d.description, d.expires, d.emoji || null, d.link, d.impactAdId, d.logoDomain, d.logoUrl]
+        `INSERT INTO deals (id, title, brand, store, category, discount, code, description, expires, featured, emoji, link, source, impact_ad_id, logo_domain, logo_url, check_url)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,false,$10,$11,'impact',$12,$13,$14,$15)`,
+        [id, d.title, d.brand, d.store, d.category, d.discount, d.code, d.description, d.expires, d.emoji || null, d.link, d.impactAdId, d.logoDomain, d.logoUrl, d.checkUrl || null]
       );
       created++;
     }
@@ -241,20 +241,20 @@ async function upsertAwinDeals(awinDeals) {
     if (existingRows[0]) {
       const { rowCount } = await pool.query(
         `UPDATE deals SET title=$2, brand=$3, store=$4, category=$5, discount=$6, code=$7,
-           description=$8, expires=$9, link=$10, logo_domain=$11, updated_at=now()
+           description=$8, expires=$9, link=$10, logo_domain=$11, check_url=$12, updated_at=now()
          WHERE awin_promotion_id=$1
-           AND (title, brand, store, category, discount, code, description, expires, link, logo_domain)
-               IS DISTINCT FROM ($2,$3,$4,$5,$6,$7,$8,$9::date,$10,$11)`,
-        [d.awinPromotionId, d.title, d.brand, d.store, d.category, d.discount, d.code, d.description, d.expires, d.link, d.logoDomain]
+           AND (title, brand, store, category, discount, code, description, expires, link, logo_domain, check_url)
+               IS DISTINCT FROM ($2,$3,$4,$5,$6,$7,$8,$9::date,$10,$11,$12)`,
+        [d.awinPromotionId, d.title, d.brand, d.store, d.category, d.discount, d.code, d.description, d.expires, d.link, d.logoDomain, d.checkUrl || null]
       );
       if (rowCount) updated++;
       else unchanged++;
     } else {
       const id = await makeDealId();
       await pool.query(
-        `INSERT INTO deals (id, title, brand, store, category, discount, code, description, expires, featured, emoji, link, source, awin_promotion_id, logo_domain)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,false,$10,$11,'awin',$12,$13)`,
-        [id, d.title, d.brand, d.store, d.category, d.discount, d.code, d.description, d.expires, d.emoji || null, d.link, d.awinPromotionId, d.logoDomain]
+        `INSERT INTO deals (id, title, brand, store, category, discount, code, description, expires, featured, emoji, link, source, awin_promotion_id, logo_domain, check_url)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,false,$10,$11,'awin',$12,$13,$14)`,
+        [id, d.title, d.brand, d.store, d.category, d.discount, d.code, d.description, d.expires, d.emoji || null, d.link, d.awinPromotionId, d.logoDomain, d.checkUrl || null]
       );
       created++;
     }

@@ -137,6 +137,9 @@ function mapAdToDeal(ad, campaignsById) {
     description,
     expires: toIsoDate(ad.EndDate) || NO_EXPIRY,
     link: ad.TrackingLink || null,
+    // The landing page itself, for the dead-link sweep — fetching
+    // TrackingLink registers a click, which is the whole point of it.
+    checkUrl: ad.LandingPageUrl || campaign.CampaignUrl || null,
     logoDomain: logoDomainFrom(campaign.CampaignUrl || ad.LandingPageUrl),
     // Impact serves the brand's own logo, but only to an authenticated
     // caller — so point at our proxy, which holds the credentials and
