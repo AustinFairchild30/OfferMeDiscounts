@@ -255,7 +255,13 @@ const BLOCKED_ADVERTISERS = new Set([
   // eRigs" — concentrate vaporizers. Third time that sector has hidden
   // something that isn't a toy, so the sector label is now worth nothing
   // as a signal and only the site is.
-  "dr.dabber", "dr dabber", "drdabber"
+  "dr.dabber", "dr dabber", "drdabber",
+  // Medical marijuana card consultations. Listed by name because the subject
+  // matter check reads the offer text, and a voucher reading "20% off your
+  // card renewal" names nothing it could match on — which is how this
+  // category of advertiser actually writes its offers. Verified from their
+  // own site: "get your medical marijuana card online, same day".
+  "onlinemedicalcard", "online medical card", "onlinemedicalcard.com"
 ]);
 
 // The domain is frequently more honest than the advertiser name. "Shenzhen
@@ -265,7 +271,8 @@ const BLOCKED_ADVERTISERS = new Set([
 // has been sanded smooth.
 const BLOCKED_DOMAINS = new Set([
   "stdcheck.com", "sourcemore.com",
-  "adorime.com", "galaxytreats.com", "bestrealdoll.com", "drdabber.com"
+  "adorime.com", "galaxytreats.com", "bestrealdoll.com", "drdabber.com",
+  "onlinemedicalcard.com"
 ]);
 
 // Matched against the STORE NAME, where a loose term is safe: no legitimate

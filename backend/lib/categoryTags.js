@@ -46,7 +46,18 @@ const CATEGORY_TAGS = {
   "Hair Care": ["Extensions & Wigs", "Shampoo & Conditioner", "Styling Tools", "Hair Treatments"],
   // Car accessories and cordless tools. Fanttik's catalog is tire inflators,
   // jump starters, car vacuums and an electric screwdriver.
-  "Automotive": ["Car Accessories", "Car Care & Cleaning", "Jump Starters & Tire Inflators", "Power Tools"]
+  "Automotive": ["Car Accessories", "Car Care & Cleaning", "Jump Starters & Tire Inflators", "Power Tools"],
+  // Glasses had no category, so the classifier reached for the nearest thing
+  // on the list and filed SizeGlasses under Consumer Electronics — putting
+  // prescription eyewear in the Tech browse group. A wrong-but-valid answer
+  // like that is worse than "Other", because the retry in
+  // advertiserCategories only re-asks about "Other": it heals a missing
+  // answer, never a confident wrong one.
+  "Eyewear": ["Prescription Glasses", "Sunglasses", "Blue Light Glasses", "Reading Glasses"],
+  // Outdoor lighting, garden and patio. "Home & Garden" was already listed
+  // under the Home group but was never on the classifier's menu, so nothing
+  // could be assigned to it — the same gap that stranded Pets.
+  "Home & Garden": ["Outdoor Lighting", "Garden & Patio", "Tools & Hardware", "Home Decor"]
 };
 
 // CJ's category names are its own internal taxonomy, not shopper language:
@@ -89,7 +100,7 @@ const CATEGORY_GROUPS = {
   "Home": ["Home Appliances", "Furniture", "Bed & Bath", "Home & Garden", "Bedding", "White Goods", "Appliances"],
   "Beauty & Health": ["Cosmetics", "Nutritional Supplements", "Wellness", "Bath & Body", "Fragrance", "Health & Beauty", "Supplements", "Hair Care"],
   "Sports & Outdoors": ["Sports", "Outdoors", "Golf", "Sports Equipment"],
-  "Fashion": ["Apparel", "Shoes", "Womens", "Mens", "Jewelry", "Clothing", "Clothing Accessories", "Women's", "Men's"],
+  "Fashion": ["Apparel", "Shoes", "Womens", "Mens", "Jewelry", "Clothing", "Clothing Accessories", "Women's", "Men's", "Eyewear"],
   "Food & Drink": ["Gourmet", "FMCG"],
   "Travel": ["Hotel", "Hotels"],
   "Pets": ["Pets & Pet Care", "Pets"],
