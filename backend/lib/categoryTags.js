@@ -57,7 +57,13 @@ const CATEGORY_TAGS = {
   // Outdoor lighting, garden and patio. "Home & Garden" was already listed
   // under the Home group but was never on the classifier's menu, so nothing
   // could be assigned to it — the same gap that stranded Pets.
-  "Home & Garden": ["Outdoor Lighting", "Garden & Patio", "Tools & Hardware", "Home Decor"]
+  "Home & Garden": ["Outdoor Lighting", "Garden & Patio", "Tools & Hardware", "Home Decor"],
+  // Added when two art-supply advertisers turned up in the same batch of
+  // Awin invitations — Silver Brush (fine artist brushes) and Golden Maple
+  // (paints, canvases, model-painting supplies). One orphan is a category
+  // nobody can reach; two retailers is the threshold for a browse page, so
+  // this one can earn /arts-and-crafts-deals rather than sit empty.
+  "Arts & Crafts": ["Paints & Brushes", "Drawing & Sketching", "Model Making", "Craft Supplies"]
 };
 
 // CJ's category names are its own internal taxonomy, not shopper language:
@@ -104,6 +110,7 @@ const CATEGORY_GROUPS = {
   "Food & Drink": ["Gourmet", "FMCG"],
   "Travel": ["Hotel", "Hotels"],
   "Pets": ["Pets & Pet Care", "Pets"],
+  "Arts & Crafts": ["Arts & Crafts", "Art Supplies", "Crafts", "Hobbies"],
   "Kids & Gifts": ["Babies", "Baby", "Toys", "Toys & Games", "Gifts", "Gifts & Flowers", "Flowers", "Magazines", "Childrens", "Children's"]
 };
 
