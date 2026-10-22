@@ -147,7 +147,29 @@ const STORE_DISPLAY_NAMES = {
   "mojawa": "Mojawa",
   "mojawa, llc": "Mojawa",
   "aloraircrawlspace": "Alorair",
-  "alorair the dry air": "Alorair"
+  "alorair the dry air": "Alorair",
+  // Awin invitations accepted 2026-10-21. Keyed on several forms of each
+  // name because the programme name in the invitation list and the
+  // advertiser name in the API are not always the same string, and this map
+  // is consulted on the raw value before any cleaning happens.
+  //
+  // Each checked against the brand's own site, not guessed:
+  // launchtechusa.com sells vehicle diagnostic tools, and the bare "LAUNCH"
+  // left by stripping the region tag is too generic to put in a page title;
+  // fntcase.com is the brand Shenzhen Feinuote actually trades under.
+  "purty body affiliate program": "Purty Body",
+  "purty body": "Purty Body",
+  "launch us": "Launch Tech",
+  "launch": "Launch Tech",
+  "shenzhen feinuote electronic technology co., ltd.": "FNTCASE",
+  "shenzhen feinuote electronic technology co.": "FNTCASE",
+  "shenzhen feinuote electronic technology co ltd": "FNTCASE",
+  "shenzhen feinuote electronic technology": "FNTCASE",
+  "rarartacabinets": "Rara RTA Cabinets",
+  "loveisarose.com": "Love Is A Rose",
+  "loveisarose": "Love Is A Rose",
+  "jumy bee - us": "Jumy Bee",
+  "jumy bee": "Jumy Bee"
 };
 
 // CJ's advertiser-name is an account name, not a brand name: it carries the
@@ -171,7 +193,12 @@ function cleanStoreName(store) {
   const cleaned = raw
     .replace(/\s*Affiliate\s*(Program)?\s*$/i, "")
     .replace(/,?\s*\b(Inc|LLC|L\.L\.C|LLP|LP|Corp|Corporation|Ltd|Co)\b\.?\s*$/i, "")
-    .replace(/\s+(US|USA)\s*$/, "") // case-sensitive: only the region tag, never a word ending in "us"
+    // Region tags, case-sensitive so a word ending in "us" survives. Awin
+    // writes them several ways — "Fanttik (US)", "Jumy Bee - US", "Alison US
+    // CA" — and the first version of this only caught a single
+    // space-separated code, so the hyphenated and multi-country forms sailed
+    // through into page titles and URL slugs.
+    .replace(/\s*[-\u2013\u2014]?\s*\b(US|USA|CA|UK|EU|AU|NZ)(\s+(US|USA|CA|UK|EU|AU|NZ))*\s*$/, "")
     // Awin tags the region in parentheses — "Nextrition Pet (US)", "Fanttik
     // (US)" — which is programme bookkeeping, not a brand name, and it was
     // reaching the page title, the h1 and the URL slug. Restricted to short
