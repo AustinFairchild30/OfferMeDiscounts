@@ -11,7 +11,9 @@ on:
   workflow_dispatch: {}
 
 env:
-  SITE_URL: https://offermediscounts.onrender.com
+  # www, not the apex — see the note in sync-cj.yml: the apex 301s and this
+  # curl does not follow redirects.
+  SITE_URL: https://www.offermediscounts.com
 
 jobs:
   sync:

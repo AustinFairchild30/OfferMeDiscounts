@@ -8,9 +8,12 @@ on:
   workflow_dispatch: {} # lets you trigger a sync manually from the Actions tab
 
 env:
-  # Update this the day the custom domain goes live — everything else
-  # (secret, route, auth) stays the same.
-  SITE_URL: https://offermediscounts.onrender.com
+  # The www host, not the apex: offermediscounts.com answers a 301 to
+  # www.offermediscounts.com, this curl has no -L, and the step below treats
+  # anything that isn't a 200 as a failure. The onrender.com hostname this
+  # replaced still works, but it is not the address the site is served at and
+  # nothing guarantees Render keeps answering on it.
+  SITE_URL: https://www.offermediscounts.com
 
 jobs:
   sync:
