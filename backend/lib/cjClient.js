@@ -377,6 +377,9 @@ function extractLogoDomain(destination) {
 // (carry a digit, or be written in caps) and not be an ordinary word that
 // happens to follow "code", or this invents codes that don't work.
 const CODE_IN_TEXT = /\b(?:coupon|promo|discount)?\s*code\s*[:=]?\s*["'\u201c]?([A-Za-z0-9][A-Za-z0-9_-]{2,19})\b/i;
+// Shouted, 4-20 chars, at least one letter AND one digit, no lowercase. The
+// "no lowercase" rule is doing the real work — see redactCodes.
+const BARE_CODE = /\b(?=[A-Z0-9_-]{4,20}\b)(?=[A-Z0-9_-]*[A-Z])(?=[A-Z0-9_-]*\d)[A-Z][A-Z0-9_-]*\b/g;
 const NOT_A_CODE = new Set([
   "the", "your", "you", "and", "for", "at", "on", "off", "use", "using", "with",
   "free", "now", "here", "below", "above", "today", "required", "needed", "applies",
@@ -385,7 +388,11 @@ const NOT_A_CODE = new Set([
 ]);
 
 function extractCodeFromText(text) {
-  const match = CODE_IN_TEXT.exec(String(text || ""));
+  // Normalized here too, not just by the callers: this is the function that
+  // decides whether a code exists at all, and a full-width colon reaching it
+  // unnormalized means the deal syncs with code = NULL and the SMS gate has
+  // nothing to send. Belt and braces on the path that matters most.
+  const match = CODE_IN_TEXT.exec(normalizeWidth(text));
   if (!match) return null;
   const token = match[1];
   if (NOT_A_CODE.has(token.toLowerCase())) return null;
@@ -412,7 +419,7 @@ function extractCodeFromText(text) {
 // extractCodeFromText keeps matching but stripCodeMention can't remove
 // can't spin here.
 function redactCodes(text, knownCode) {
-  let out = String(text || "");
+  let out = normalizeWidth(text);
   if (!out) return out;
   if (knownCode) out = stripCodeMention(out, knownCode);
 
@@ -424,11 +431,32 @@ function redactCodes(text, knownCode) {
     out = next;
   }
 
+  // The dangerous case is the code nothing above ever identified: `code` ends
+  // up NULL, so the gate has nothing to deliver AND nothing knows to strip the
+  // token. Italist shipped "WELCOME5 — 5% Off" on a public card exactly this
+  // way. CODE_IN_TEXT can't catch it, because it tests for the LABEL ("code:")
+  // and this advertiser never wrote one — so finish with a test of the token's
+  // SHAPE instead: shouted, and mixing letters with digits, which is what a
+  // coupon code looks like and what prose does not.
+  //
+  // Rejecting anything with a lowercase letter is what makes this safe to run
+  // over every card: it keeps real product names ("Falcon2", "Pearl L1") while
+  // taking off WELCOME5 and OIAFF5. Model numbers like IM013 and DDL242X-15HW
+  // go too, which is the right trade — losing a SKU from a title costs a word,
+  // and leaving a working code on the card costs the whole business model.
+  out = out.replace(BARE_CODE, "");
+
   // Lifting a code out of "Extra 54% OFF (code:E54)" leaves the brackets
   // behind, and those land on a deal tile. Only ever removes a bracket pair
   // that is now empty.
+  // Taking a token off the FRONT of a title leaves the separator that used to
+  // follow it stranded there \u2014 "WELCOME5 \u2014 5% Off" became "\u2014 5% Off", which
+  // reads as a typo on the card. stripCodeMention already trims a dangling
+  // separator off the end; this is the same cleanup at the other end.
   return out
     .replace(/\(\s*\)|\[\s*\]|\{\s*\}|["\u201c]\s*["\u201d]/g, "")
+    .replace(/^[\s"'\u201c\u201d:=\-\u2013\u2014,;/|_%]+/u, "")
+    .replace(/[\s"'\u201c\u201d:=\-\u2013\u2014,;/|_]+$/u, "")
     .replace(/\s{2,}/g, " ")
     .trim();
 }
@@ -437,8 +465,25 @@ function redactCodes(text, knownCode) {
 // text (CJ's own feed, not us rendering anything) — e.g. a real Herbspro
 // entry whose description was literally "<link>Special Affiliate
 // Offer</link>". Strip it before this text is ever shown to a visitor.
+// Advertisers paste offer text straight out of Chinese-locale tools, which
+// carries full-width punctuation with it: OutIn's "...off Code：OIAFF5" uses
+// U+FF1A, not a colon, and Philips writes prices as "Save ＄64.9". Every code
+// pattern below keys off an ASCII ':' or '=', so that one invisible character
+// defeated the detection AND the redaction at once and put a live coupon code
+// on a public card. Fold the full-width block back to ASCII before any of it
+// runs — and before the text is stored, so the prices render as "$64.9".
+function normalizeWidth(text) {
+  return String(text || "")
+    .replace(/[！-～]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
+    .replace(/[　 ]/g, " ")
+    // "Save＄100" has no space because the full-width form is a wide glyph
+    // that supplies its own. Once it is an ASCII '$' the words collide, so
+    // give it the space back.
+    .replace(/([A-Za-z])\$(?=\d)/g, "$1 $");
+}
+
 function stripHtmlTags(text) {
-  return (text || "").replace(/<\/?[^>]+>/g, "").trim();
+  return normalizeWidth(text).replace(/<\/?[^>]+>/g, "").trim();
 }
 
 // CJ's link-name is sometimes just the bare advertiser name ("Herbspro.com")
