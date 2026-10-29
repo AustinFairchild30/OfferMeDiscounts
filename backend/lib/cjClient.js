@@ -280,6 +280,27 @@ const BLOCKED_ADVERTISERS = new Set([
   "centerpoint archery", "centerpoint", "ravin crossbows", "ravin"
 ]);
 
+// Excluded for the quality of what they send, NOT for what they sell. Kept
+// apart from BLOCKED_ADVERTISERS on purpose: every name in that set is there
+// because promoting it would breach carrier rules, and a reader who finds a
+// stationery brand among the crossbow sellers will reasonably conclude it
+// sells something it doesn't. Same mechanism, different reason, and the
+// reason is the part worth preserving.
+//
+// Clever Fox sends 20 Awin rows, 18 of which are titled with a person's name
+// — "Jennifer Cook", "Vicky Parrilli" — carrying that creator's own referral
+// code and no discount at all. They are affiliate records that happen to be
+// shaped like vouchers, not offers anyone can use, and they were 5% of the
+// catalog showing strangers' names on cards. The cost of the block is the two
+// genuine offers in the same feed ("10% Off Storewide" and a 15% sitewide);
+// at 20 rows for 2 usable ones, the feed is not worth parsing around.
+//
+// Prefer a rule in looksLikePromotion to a name here, once that exists — a
+// name list does not generalise to the next advertiser who does this.
+const EXCLUDED_FOR_FEED_QUALITY = new Set([
+  "clever fox", "cleverfox", "cleverfoxplanner"
+]);
+
 // The domain is frequently more honest than the advertiser name. "Shenzhen
 // Zhuole E-commerce Co., Ltd" tells you nothing; adorime.com tells you
 // everything. Checked as an exact host and also against the pattern below,
@@ -317,6 +338,9 @@ function isBlockedAdvertiser(store, text = "", domain = "") {
   const name = String(store || "").trim().toLowerCase();
   const host = String(domain || "").trim().toLowerCase().replace(/^www\./, "");
   if (BLOCKED_ADVERTISERS.has(name)) return true;
+  // Shares this function so purgeBlockedDeals sweeps existing rows too — it
+  // is the only thing that makes adding a name retroactive.
+  if (EXCLUDED_FOR_FEED_QUALITY.has(name)) return true;
   if (host && BLOCKED_DOMAINS.has(host)) return true;
   if (name && BLOCKED_STORE_PATTERN.test(name)) return true;
   if (host && BLOCKED_STORE_PATTERN.test(host)) return true;
