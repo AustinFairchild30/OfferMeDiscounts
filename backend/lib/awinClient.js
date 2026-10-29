@@ -40,7 +40,7 @@
 
 const {
   deriveDiscount, isNonUsTargeted, stripHtmlTags, cleanStoreName,
-  dedupeIdenticalOffers, capPerAdvertiser, isBlockedAdvertiser,
+  dedupeIdenticalOffers, capPerAdvertiser, isBlockedAdvertiser, enforceOfferQuality,
   extractCodeFromText, redactCodes
 } = require("./cjClient");
 
@@ -250,7 +250,7 @@ async function fetchAwinDeals() {
     .filter(d => d.discount || d.code)
     .filter(d => !isBlockedAdvertiser(d.store, `${d.title} ${d.description}`, d.logoDomain));
 
-  return { deals: capPerAdvertiser(dedupeIdenticalOffers(deals)), complete };
+  return { deals: capPerAdvertiser(dedupeIdenticalOffers(enforceOfferQuality(deals, "awin"))), complete };
 }
 
 module.exports = { fetchAwinDeals, mapPromotionToDeal, servesUs, ENDPOINTS, NO_EXPIRY };

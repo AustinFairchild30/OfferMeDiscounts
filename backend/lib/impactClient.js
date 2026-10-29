@@ -24,7 +24,7 @@
 const {
   deriveDiscount, isNonUsTargeted, stripCodeMention, stripHtmlTags,
   cleanStoreName, dedupeIdenticalOffers, capPerAdvertiser, isBlockedAdvertiser,
-  extractCodeFromText, redactCodes
+  extractCodeFromText, redactCodes, enforceOfferQuality
 } = require("./cjClient");
 
 function logoDomainFrom(url) {
@@ -182,7 +182,7 @@ async function fetchImpactDeals() {
   // four near-identical "51% off" tiles among them. Impact needs them more
   // than CJ does, not less: advertisers there register the same offer once
   // per creative, so identical offers under different ad-ids are the norm.
-  return capPerAdvertiser(dedupeIdenticalOffers(deals));
+  return capPerAdvertiser(dedupeIdenticalOffers(enforceOfferQuality(deals, "impact")));
 }
 
 // --- Category resolution -------------------------------------------------

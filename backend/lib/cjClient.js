@@ -52,7 +52,13 @@ function parseExpires(promotionEndDate) {
 // against the others — there's no number in it — so it drifted to the
 // bottom of every sort while still taking a card.
 function deriveDiscount(promotionType, title, description) {
-  const text = `${description} ${title}`;
+  // Title first, and the order is the whole point: this takes the FIRST match
+  // in the string, so whichever field leads wins every disagreement. With the
+  // description leading, Piscifun's "Buy 2 Get 25% OFF Clearance Items" wore a
+  // 55% badge, because Awin repeats one generic description ("55% OFF
+  // Clearance Promo") across every offer in the programme. The title is what
+  // the visitor reads on the card, so it is what the badge has to agree with.
+  const text = `${title} ${description}`;
 
   // 100% is never a discount in this data — it's "100% Virgin Human Hair",
   // "1 child 100% FREE", "100% free shipping", "100% satisfaction". A coupon
@@ -345,6 +351,102 @@ function isBlockedAdvertiser(store, text = "", domain = "") {
   if (name && BLOCKED_STORE_PATTERN.test(name)) return true;
   if (host && BLOCKED_STORE_PATTERN.test(host)) return true;
   return BLOCKED_SUBJECT_MATTER.test(String(text || ""));
+}
+
+// --- Offer quality ------------------------------------------------------
+// isBlockedAdvertiser answers "may we promote this advertiser at all". This
+// section answers the question nothing asked before: "is this row an offer".
+// Everything upstream assumes that if an advertiser is allowed, every row it
+// sends is a deal, and Clever Fox disproved that twenty times in one feed.
+
+// Advertisers name rows after the CREATIVE rather than the offer, because in
+// their own dashboard that is the useful label: DirectDeals ships "25% Office
+// Banner link" and "Shop Quickbooks and Save! banner image". The offer behind
+// those is real — all 13 of its rows carry a genuine discount — so this is a
+// cleaning rule, not a drop rule. Dropping them would throw away the deal to
+// fix the title.
+const CREATIVE_METADATA =
+  /\b(?:banners?|text\s?links?|creatives?|images?|logos?|\d{3}\s?x\s?\d{2,3})\b/gi;
+
+function stripCreativeMetadata(text) {
+  return String(text || "")
+    .replace(CREATIVE_METADATA, "")
+    // A bare "link" can't be stripped anywhere — a link bracelet is a real
+    // product — but a trailing one is always the creative label, and taking
+    // "Banner" out of "25% Office Banner link" strands it there.
+    .replace(/\s+links?\s*$/i, "")
+    // Removing a word from the middle leaves its separators touching
+    // ("10% discount - - coupon code"), and from either end leaves one
+    // dangling.
+    .replace(/\s*([-–—|:,])\s*(?=[-–—|:,])/g, "")
+    .replace(/^[\s\-–—|:,]+|[\s\-–—|:,]+$/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+// Two or three capitalised words and nothing else — "Jennifer Cook", "Vicky
+// Parrilli". Initials allowed, since "April D Burwick" is the same thing.
+const PERSON_NAME = /^[A-Z][a-z'’-]*\.?(?:\s+[A-Z][a-z'’-]*\.?){1,2}$/;
+
+// Any word or symbol that means a saving. A row carrying one of these is
+// making an offer however oddly it is worded, so it is not for this gate to
+// judge — the point here is to catch rows that offer NOTHING.
+const OFFER_WORD =
+  /\b(?:off|sale|save|saving|savings|deal|deals|discount|free|bogo|clearance|bundle|gift|extra|sitewide|coupon|promo|code|voucher)\b|[%$]/i;
+
+// Deliberately narrow. An earlier, looser version of this also dropped rows
+// with "no offer word or number at all", which took 33 rows including Big
+// Horn Outdoors' real '12" wood fired+ electric pizza oven' — a product, but
+// an actual thing being sold at a discount. A gate that eats real offers to
+// tidy the catalog is worse than the untidy catalog, so this rejects only
+// what is unambiguous and leaves the rest to the drop log to argue for later.
+function rejectionReason(deal) {
+  const title = String(deal.title || "").trim();
+
+  // Nothing survived cleaning, so the row was never anything but a creative
+  // label — Coco Moon's "CMH_20%_728X90" is a banner filename end to end.
+  if (!title) return "metadata-only title";
+
+  // A creator's name, their personal referral code, and no discount: an
+  // affiliate record shaped like a voucher. Requiring all three is what keeps
+  // AVIDLOVE's "Affiliate Discount Code" — which matches the name shape on
+  // word count alone — out of this.
+  if (!deal.discount && !OFFER_WORD.test(title) && PERSON_NAME.test(title)) {
+    return "creator-name title, no offer";
+  }
+
+  return null;
+}
+
+// Cleans, then gates, then says what it dropped. The saying matters as much
+// as the dropping: a silent filter over a thin catalog starves it without
+// anyone noticing, and the counts are the only way to judge whether the next
+// rule is worth adding. Logs nothing when nothing is dropped.
+function enforceOfferQuality(deals, network) {
+  const cleaned = deals.map(deal => ({
+    ...deal,
+    title: stripCreativeMetadata(deal.title),
+    description: stripCreativeMetadata(deal.description)
+  }));
+
+  const dropped = new Map();
+  const kept = cleaned.filter(deal => {
+    const reason = rejectionReason(deal);
+    if (!reason) return true;
+    dropped.set(reason, (dropped.get(reason) || 0) + 1);
+    return false;
+  });
+
+  const retitled = cleaned.filter((deal, i) => deal.title !== String(deals[i].title || "").trim()).length;
+  if (dropped.size || retitled) {
+    const reasons = [...dropped.entries()].map(([reason, n]) => `${n} ${reason}`).join(", ");
+    console.log(
+      `[${network}] quality gate: kept ${kept.length}/${deals.length}` +
+      (dropped.size ? `, dropped ${reasons}` : "") +
+      (retitled ? `, cleaned ${retitled} title(s)` : "")
+    );
+  }
+  return kept;
 }
 
 // Now-redundant since every deal is US-only (see isNonUsTargeted) — was
@@ -700,7 +802,7 @@ async function fetchCjDeals() {
 
   // ...then collapse links that are the same offer wearing different
   // link-ids, and stop any one advertiser owning the catalog. See above.
-  return capPerAdvertiser(dedupeIdenticalOffers(deals));
+  return capPerAdvertiser(dedupeIdenticalOffers(enforceOfferQuality(deals, "cj")));
 }
 
 // Shared with impactClient.js — the two networks differ in how they deliver
@@ -719,5 +821,7 @@ module.exports = {
   dedupeIdenticalOffers,
   capPerAdvertiser,
   isBlockedAdvertiser,
+  enforceOfferQuality,
+  stripCreativeMetadata,
   BLOCKED_ADVERTISERS
 };
